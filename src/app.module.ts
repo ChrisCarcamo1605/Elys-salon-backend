@@ -13,7 +13,10 @@ import { configuration, AppConfig } from './config/configuration';
 import { databaseConfigFactory } from './config/database.config';
 import { envValidationSchema } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ProductsModule } from './modules/products/products.module';
 import { RbacModule } from './modules/rbac/rbac.module';
+import { ServicesModule } from './modules/services/services.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -43,6 +46,9 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     UsersModule,
     RbacModule,
+    CategoriesModule,
+    ProductsModule,
+    ServicesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

@@ -25,9 +25,7 @@ export const envValidationSchema = Joi.object({
   RESEND_API_KEY: Joi.string().allow('').optional(),
   EMAIL_FROM: Joi.string().email().default('noreply@elys-salon.com'),
 
-  SUPABASE_URL: Joi.string().uri().allow('').optional(),
-  SUPABASE_SERVICE_KEY: Joi.string().allow('').optional(),
-  SUPABASE_STORAGE_BUCKET: Joi.string().default('reports'),
+  STORAGE_PATH: Joi.string().default('/tmp/reports'),
 
   FRONTEND_URL: Joi.string().uri().default('http://localhost:3000'),
   APP_URL: Joi.string().uri().default('http://localhost:3000'),

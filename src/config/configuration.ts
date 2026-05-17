@@ -20,10 +20,8 @@ export interface AppConfig {
     resendApiKey?: string;
     from: string;
   };
-  supabase: {
-    url?: string;
-    serviceKey?: string;
-    storageBucket: string;
+  storage: {
+    path: string;
   };
   app: {
     frontendUrl: string;
@@ -69,10 +67,8 @@ export const configuration = (): AppConfig => ({
     resendApiKey: process.env.RESEND_API_KEY,
     from: process.env.EMAIL_FROM!,
   },
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    serviceKey: process.env.SUPABASE_SERVICE_KEY,
-    storageBucket: process.env.SUPABASE_STORAGE_BUCKET!,
+  storage: {
+    path: process.env.STORAGE_PATH!,
   },
   app: {
     frontendUrl: process.env.FRONTEND_URL!,
