@@ -56,15 +56,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
         if (typeof obj.message === 'string') {
           message = obj.message;
         } else if (Array.isArray(obj.message)) {
-          message = obj.message.join(', ');
+          message = obj.message.join('; ');
           fields = {};
           for (const m of obj.message as string[]) {
             const match = m.match(/^(\w+)\s/);
             if (match) fields[match[1]] = m;
           }
         }
-        if (obj.error && typeof obj.error === 'string') {
-          message = obj.error;
+        if (obj.fields && typeof obj.fields === 'object' && !Array.isArray(obj.fields)) {
+          fields = obj.fields as Record<string, string>;
         }
       }
 

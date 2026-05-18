@@ -28,16 +28,17 @@ async function bootstrap(): Promise<void> {
       transform: true,
       transformOptions: { enableImplicitConversion: false },
       exceptionFactory: (errors) => {
-        const errorMessages = errors
-          .map((e) => {
-            const constraints = e.constraints
-              ? Object.values(e.constraints).join(', ')
-              : '';
-            return `${e.property}: ${constraints}`;
-          })
+        const fields: Record<string, string> = {};
+        for (const e of errors) {
+          fields[e.property] = e.constraints
+            ? Object.values(e.constraints).join(', ')
+            : 'valor inválido';
+        }
+        const message = Object.entries(fields)
+          .map(([k, v]) => `${k}: ${v}`)
           .join('; ');
-        logger.error(`Validation failed: ${errorMessages}`);
-        return new BadRequestException(errorMessages);
+        logger.error(`Validation failed: ${message}`);
+        return new BadRequestException({ message, fields });
       },
     }),
   );
