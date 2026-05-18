@@ -1,6 +1,17 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { SaleStatus } from '../../../common/enums';
 import { User } from '../../staff/entities/user.entity';
+import { SaleLine } from './sale-line.entity';
+import { SalePayment } from './sale-payment.entity';
 
 @Entity('sales')
 @Index('idx_sales_employee_date_status', ['employeeId', 'createdAt', 'status'])
@@ -18,6 +29,12 @@ export class Sale {
   @Column({ name: 'employee_id' })
   employeeId: string;
 
+  @OneToMany(() => SaleLine, (line) => line.sale)
+  lines: SaleLine[];
+
+  @OneToMany(() => SalePayment, (payment) => payment.sale)
+  payments: SalePayment[];
+
   @Column({ name: 'customer_name', length: 120, nullable: true })
   customerName: string;
 
@@ -30,7 +47,13 @@ export class Sale {
   @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
   subtotal: number;
 
-  @Column({ name: 'discount_total', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'discount_total',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   discountTotal: number;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })

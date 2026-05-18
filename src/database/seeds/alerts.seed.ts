@@ -21,9 +21,9 @@ export async function seedAlerts(ds: DataSource): Promise<Alert[]> {
   if (existing > 0) return repo.find();
 
   const catalog = await ds.getRepository(CatalogItem).find();
-  const shampoo = catalog.find(i => i.name === 'Shampoo profesional')!;
-  const acondicionador = catalog.find(i => i.name === 'Acondicionador')!;
-  const tratamiento = catalog.find(i => i.name === 'Tratamiento capilar')!;
+  const shampoo = catalog.find((i) => i.name === 'Shampoo profesional')!;
+  const acondicionador = catalog.find((i) => i.name === 'Acondicionador')!;
+  const tratamiento = catalog.find((i) => i.name === 'Tratamiento capilar')!;
 
   const alerts: Partial<Alert>[] = [
     {
@@ -76,7 +76,7 @@ export async function seedAlerts(ds: DataSource): Promise<Alert[]> {
 
   const saved: Alert[] = [];
   for (const data of alerts) {
-    const alert = repo.create(data as Partial<Alert>);
+    const alert = repo.create(data);
     saved.push(await repo.save(alert));
   }
   return saved;

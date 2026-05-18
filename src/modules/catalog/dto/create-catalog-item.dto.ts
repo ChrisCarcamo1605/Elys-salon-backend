@@ -1,43 +1,62 @@
-import { IsString, IsEnum, IsNumber, IsBoolean, IsOptional, Length } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  Length,
+} from 'class-validator';
 import { ItemType } from '../../../common/enums';
 
 export class CreateCatalogItemDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   categoryId?: string;
 
   @IsEnum(ItemType)
   type: ItemType;
 
-  @IsString() @Length(1, 200)
+  @IsString()
+  @Length(1, 200)
   name: string;
 
   @IsNumber()
   price: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   cost?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   image?: string;
 
-  @IsOptional() @IsString() @Length(1, 20)
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
   duration?: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   stock?: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   stockMin?: number;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   alertEnabled?: boolean;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   brand?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   sku?: string;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   active?: boolean;
 }

@@ -15,6 +15,7 @@ export const databaseConfigFactory = (
     migrations: [__dirname + '/../database/migrations/*.{ts,js}'],
     migrationsTableName: 'typeorm_migrations',
     synchronize: false,
-    logging: nodeEnv === 'development' ? ['error', 'warn', 'migration'] : ['error'],
+    logging:
+      nodeEnv === 'development' ? ['error', 'warn', 'migration'] : ['error'],
   };
 };

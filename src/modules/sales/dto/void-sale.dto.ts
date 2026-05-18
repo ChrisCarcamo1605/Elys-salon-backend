@@ -1,6 +1,7 @@
 import { IsString, IsOptional } from 'class-validator';
 
 export class VoidSaleDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   reason?: string;
 }

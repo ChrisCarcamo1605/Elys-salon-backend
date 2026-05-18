@@ -22,7 +22,10 @@ export class InventoryController {
 
   @Post('adjustments')
   @RequirePermission('inventory.adjust')
-  createAdjustment(@Body() dto: CreateAdjustmentDto, @CurrentUser() user: AuthUser) {
+  createAdjustment(
+    @Body() dto: CreateAdjustmentDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.service.createAdjustment(dto, user.id);
   }
 

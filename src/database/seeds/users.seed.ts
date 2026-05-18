@@ -11,7 +11,9 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
   const existing = await repo.count();
   if (existing > 0) return repo.find();
 
-  const systemPinHash = await argon2.hash('SYSTEM_NO_LOGIN' + PEPPER + Date.now());
+  const systemPinHash = await argon2.hash(
+    'SYSTEM_NO_LOGIN' + PEPPER + Date.now(),
+  );
   const adminPinHash = await argon2.hash('1234' + PEPPER);
   const employeePinHash = await argon2.hash('0000' + PEPPER);
 

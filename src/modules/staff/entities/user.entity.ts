@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Role, UserStatus, PayType } from '../../../common/enums';
 
 @Entity('users')
@@ -42,13 +49,24 @@ export class User {
   @Column({ type: 'jsonb', nullable: true })
   schedule: Record<string, unknown>;
 
-  @Column({ name: 'pay_type', type: 'enum', enum: PayType, default: PayType.SALARIO })
+  @Column({
+    name: 'pay_type',
+    type: 'enum',
+    enum: PayType,
+    default: PayType.SALARIO,
+  })
   payType: PayType;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
   salary: number;
 
-  @Column({ name: 'commission_rate', type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({
+    name: 'commission_rate',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 0,
+  })
   commissionRate: number;
 
   @Column({ name: 'avatar_hue', nullable: true })

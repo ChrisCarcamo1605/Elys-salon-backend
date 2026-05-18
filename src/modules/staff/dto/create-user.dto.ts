@@ -1,4 +1,15 @@
-import { IsString, IsOptional, IsEnum, IsDateString, IsNumber, IsObject, Length, Min, Max, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  IsNumber,
+  IsObject,
+  Length,
+  Min,
+  Max,
+  IsBoolean,
+} from 'class-validator';
 import { Role, UserStatus, PayType } from '../../../common/enums';
 
 export class CreateUserDto {
@@ -13,42 +24,58 @@ export class CreateUserDto {
   @IsEnum(Role)
   role: Role;
 
-  @IsOptional() @IsString() @Length(1, 4)
+  @IsOptional()
+  @IsString()
+  @Length(1, 4)
   initials?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   color?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   position?: string;
 
-  @IsOptional() @IsEnum(UserStatus)
+  @IsOptional()
+  @IsEnum(UserStatus)
   status?: UserStatus;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   hireDate?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   phone?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   email?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   birthday?: string;
 
-  @IsOptional() @IsObject()
+  @IsOptional()
+  @IsObject()
   schedule?: Record<string, unknown>;
 
-  @IsOptional() @IsEnum(PayType)
+  @IsOptional()
+  @IsEnum(PayType)
   payType?: PayType;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   salary?: number;
 
-  @IsOptional() @IsNumber() @Min(0) @Max(100)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
   commissionRate?: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   avatarHue?: number;
 }

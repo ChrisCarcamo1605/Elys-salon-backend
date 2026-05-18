@@ -1,12 +1,20 @@
-import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsIn } from 'class-validator';
 
 export class ListTimeEntriesDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   userId?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   from?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   to?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['week', 'month', 'year'])
+  range?: string;
 }

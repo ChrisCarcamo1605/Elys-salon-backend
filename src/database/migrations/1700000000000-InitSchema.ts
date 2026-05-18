@@ -6,21 +6,51 @@ export class InitSchema1700000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-    await queryRunner.query(`CREATE TYPE public.role_enum AS ENUM ('admin','empleada')`);
-    await queryRunner.query(`CREATE TYPE public.user_status_enum AS ENUM ('activa','vacaciones','inactiva')`);
-    await queryRunner.query(`CREATE TYPE public.pay_type_enum AS ENUM ('salario','salario + comisión','comisión')`);
-    await queryRunner.query(`CREATE TYPE public.item_type_enum AS ENUM ('S','P')`);
-    await queryRunner.query(`CREATE TYPE public.sale_status_enum AS ENUM ('completed','voided')`);
-    await queryRunner.query(`CREATE TYPE public.discount_kind_enum AS ENUM ('amount','percent')`);
-    await queryRunner.query(`CREATE TYPE public.payment_method_enum AS ENUM ('cash','card','transfer')`);
-    await queryRunner.query(`CREATE TYPE public.inventory_kind_enum AS ENUM ('purchase','adjustment')`);
-    await queryRunner.query(`CREATE TYPE public.adjustment_reason_enum AS ENUM ('conteo','merma','robo','uso','devolucion')`);
-    await queryRunner.query(`CREATE TYPE public.time_entry_source_enum AS ENUM ('ui','manual')`);
-    await queryRunner.query(`CREATE TYPE public.bonus_metric_enum AS ENUM ('totalSales','retailSales','servicesDone','newClients','tipsCollected')`);
-    await queryRunner.query(`CREATE TYPE public.reward_type_enum AS ENUM ('fixed','percent')`);
-    await queryRunner.query(`CREATE TYPE public.goal_tone_enum AS ENUM ('magenta','purple','teal','green')`);
-    await queryRunner.query(`CREATE TYPE public.alert_type_enum AS ENUM ('low_stock','discount_review','slow_mover','promo')`);
-    await queryRunner.query(`CREATE TYPE public.alert_status_enum AS ENUM ('active','resolved','snoozed')`);
+    await queryRunner.query(
+      `CREATE TYPE public.role_enum AS ENUM ('admin','empleada')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.user_status_enum AS ENUM ('activa','vacaciones','inactiva')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.pay_type_enum AS ENUM ('salario','salario + comisión','comisión')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.item_type_enum AS ENUM ('S','P')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.sale_status_enum AS ENUM ('completed','voided')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.discount_kind_enum AS ENUM ('amount','percent')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.payment_method_enum AS ENUM ('cash','card','transfer')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.inventory_kind_enum AS ENUM ('purchase','adjustment')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.adjustment_reason_enum AS ENUM ('conteo','merma','robo','uso','devolucion')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.time_entry_source_enum AS ENUM ('ui','manual')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.bonus_metric_enum AS ENUM ('totalSales','retailSales','servicesDone','newClients','tipsCollected')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.reward_type_enum AS ENUM ('fixed','percent')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.goal_tone_enum AS ENUM ('magenta','purple','teal','green')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.alert_type_enum AS ENUM ('low_stock','discount_review','slow_mover','promo')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE public.alert_status_enum AS ENUM ('active','resolved','snoozed')`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "users" (
@@ -48,7 +78,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_users_pin_unique" ON "users" ("pin_hash")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_users_pin_unique" ON "users" ("pin_hash")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "sessions" (
@@ -65,7 +97,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_sessions_user_expires" ON "sessions" ("user_id", "expires_at")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_sessions_user_expires" ON "sessions" ("user_id", "expires_at")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "permissions_matrix" (
@@ -108,8 +142,12 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_catalog_category_active" ON "catalog_items" ("category_id", "active")`);
-    await queryRunner.query(`CREATE UNIQUE INDEX "uniq_sku" ON "catalog_items" ("sku") WHERE "sku" IS NOT NULL`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_catalog_category_active" ON "catalog_items" ("category_id", "active")`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "uniq_sku" ON "catalog_items" ("sku") WHERE "sku" IS NOT NULL`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "sales" (
@@ -133,7 +171,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_sales_employee_date_status" ON "sales" ("employee_id", "created_at", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_sales_employee_date_status" ON "sales" ("employee_id", "created_at", "status")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "sale_lines" (
@@ -155,7 +195,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_sale_lines_item" ON "sale_lines" ("item_id")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_sale_lines_item" ON "sale_lines" ("item_id")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "sale_payments" (
@@ -192,7 +234,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_inventory_product_date" ON "inventory_entries" ("product_id", "created_at")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_inventory_product_date" ON "inventory_entries" ("product_id", "created_at")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "time_entries" (
@@ -209,7 +253,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_time_user_date" ON "time_entries" ("user_id", "date")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_time_user_date" ON "time_entries" ("user_id", "date")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "goals" (
@@ -263,7 +309,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_alerts_type_status" ON "alerts" ("type", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_alerts_type_status" ON "alerts" ("type", "status")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "settings" (
@@ -296,7 +344,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_audit_user_created" ON "audit_log" ("user_id", "created_at")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_audit_user_created" ON "audit_log" ("user_id", "created_at")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -313,7 +363,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "sales" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "catalog_items" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "categories" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "permissions_matrix" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "permissions_matrix" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "sessions" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "users" CASCADE`);
 
@@ -322,8 +374,12 @@ export class InitSchema1700000000000 implements MigrationInterface {
     await queryRunner.query(`DROP TYPE IF EXISTS public.goal_tone_enum`);
     await queryRunner.query(`DROP TYPE IF EXISTS public.reward_type_enum`);
     await queryRunner.query(`DROP TYPE IF EXISTS public.bonus_metric_enum`);
-    await queryRunner.query(`DROP TYPE IF EXISTS public.time_entry_source_enum`);
-    await queryRunner.query(`DROP TYPE IF EXISTS public.adjustment_reason_enum`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS public.time_entry_source_enum`,
+    );
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS public.adjustment_reason_enum`,
+    );
     await queryRunner.query(`DROP TYPE IF EXISTS public.inventory_kind_enum`);
     await queryRunner.query(`DROP TYPE IF EXISTS public.payment_method_enum`);
     await queryRunner.query(`DROP TYPE IF EXISTS public.discount_kind_enum`);

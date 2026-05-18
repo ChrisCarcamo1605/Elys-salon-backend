@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Patch, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { TimeclockService } from './timeclock.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
@@ -26,7 +35,9 @@ export class TimeclockController {
 
   @Get('today')
   getToday(@CurrentUser() user: AuthUser) {
-    return this.service.getToday(user.id, user.role);
+    return this.service
+      .getToday(user.id, user.role)
+      .then((entries) => ({ entries }));
   }
 
   @Get('history')
@@ -37,12 +48,19 @@ export class TimeclockController {
 
   @Patch('entries/:id')
   @RequirePermission('attendance.read_all')
-  updateEntry(@Param('id') id: string, @Body() dto: UpdateEntryDto, @CurrentUser() user: AuthUser) {
+  updateEntry(
+    @Param('id') id: string,
+    @Body() dto: UpdateEntryDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.service.updateEntry(id, dto, user.id);
   }
 
   @Get('summary')
   getSummary(@Query() query: SummaryDto, @CurrentUser() user: AuthUser) {
-    return this.service.getSummary(query.range, user.role === 'admin' ? undefined : user.id);
+    return this.service.getSummary(
+      query.range,
+      user.role === 'admin' ? undefined : user.id,
+    );
   }
 }

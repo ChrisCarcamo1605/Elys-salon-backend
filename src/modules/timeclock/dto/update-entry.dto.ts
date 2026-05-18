@@ -4,6 +4,7 @@ export class UpdateEntryDto {
   @IsString()
   inAt: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   outAt?: string;
 }

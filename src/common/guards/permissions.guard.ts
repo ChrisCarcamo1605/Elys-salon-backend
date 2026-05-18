@@ -21,7 +21,11 @@ export class PermissionsGuard implements CanActivate {
 
   private async getPermissionsService(): Promise<PermissionsService> {
     if (!this.permissionsService) {
-      this.permissionsService = await this.moduleRef.resolve(PermissionsService, undefined as any, { strict: false });
+      this.permissionsService = await this.moduleRef.resolve(
+        PermissionsService,
+        undefined,
+        { strict: false },
+      );
     }
     return this.permissionsService!;
   }

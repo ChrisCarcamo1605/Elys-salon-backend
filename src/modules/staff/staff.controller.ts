@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { StaffService } from './staff.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
@@ -61,7 +71,10 @@ export class StaffController {
 
   @Patch(':id/permissions')
   @RequirePermission('users.permissions.manage')
-  updatePermissions(@Param('id') id: string, @Body() dto: UpdatePermissionsDto) {
+  updatePermissions(
+    @Param('id') id: string,
+    @Body() dto: UpdatePermissionsDto,
+  ) {
     return this.service.updatePermissions(id, dto);
   }
 }

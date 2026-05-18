@@ -1,13 +1,22 @@
-import { IsString, IsNumber, IsBoolean, IsEnum, IsOptional, ValidateNested, IsArray, Min } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  ValidateNested,
+  IsArray,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { DiscountKind, PaymentMethod } from '../../../common/enums';
+import { DiscountKind, PaymentMethod, ItemType } from '../../../common/enums';
 
 export class SaleLineDto {
   @IsString()
   itemId: string;
 
-  @IsEnum(DiscountKind)
-  itemType: any;
+  @IsEnum(ItemType)
+  itemType: ItemType;
 
   @IsString()
   itemName: string;
@@ -18,16 +27,20 @@ export class SaleLineDto {
   @IsNumber()
   price: number;
 
-  @IsNumber() @Min(1)
+  @IsNumber()
+  @Min(1)
   qty: number;
 
-  @IsOptional() @IsEnum(DiscountKind)
+  @IsOptional()
+  @IsEnum(DiscountKind)
   discountKind?: DiscountKind;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   discountValue?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   discountById?: string;
 }
 
@@ -38,13 +51,16 @@ export class SalePaymentDto {
   @IsNumber()
   amount: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   cardLast4?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   cardBrand?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   authCode?: string;
 }
 
@@ -52,25 +68,30 @@ export class CreateSaleDto {
   @IsString()
   employeeId: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   customerName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   customerPhone?: string;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   customerIsNew?: boolean;
 
   @IsNumber()
   subtotal: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   discountTotal?: number;
 
   @IsNumber()
   total: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   tip?: number;
 
   @IsArray()

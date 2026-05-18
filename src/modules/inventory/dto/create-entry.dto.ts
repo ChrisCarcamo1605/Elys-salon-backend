@@ -11,21 +11,27 @@ export class CreateEntryDto {
   @IsNumber()
   qtyDelta: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   unitCost?: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   totalCost?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   supplier?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   invoice?: string;
 
-  @IsOptional() @IsEnum(AdjustmentReason)
+  @IsOptional()
+  @IsEnum(AdjustmentReason)
   reason?: AdjustmentReason;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   notes?: string;
 }

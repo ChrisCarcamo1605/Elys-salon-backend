@@ -1,14 +1,24 @@
-import { IsString, IsEnum, IsNumber, IsBoolean, IsOptional, Length } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  Length,
+} from 'class-validator';
 import { BonusMetric, RewardType, GoalTone } from '../../../common/enums';
 
 export class CreateGoalDto {
-  @IsString() @Length(1, 60)
+  @IsString()
+  @Length(1, 60)
   icon: string;
 
-  @IsString() @Length(1, 100)
+  @IsString()
+  @Length(1, 100)
   label: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @IsEnum(BonusMetric)
@@ -20,18 +30,21 @@ export class CreateGoalDto {
   @IsNumber()
   target: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   reward?: string;
 
   @IsEnum(RewardType)
   rewardType: RewardType;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   rewardValue?: number;
 
   @IsEnum(GoalTone)
   tone: GoalTone;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   active?: boolean;
 }

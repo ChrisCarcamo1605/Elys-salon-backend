@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
@@ -9,9 +14,12 @@ import { Role, UserStatus } from '../../common/enums';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePermissionsDto } from './dto/update-permissions.dto';
+import { AppLogger } from '../../common/utils/logger';
 
 @Injectable()
 export class StaffService {
+  private readonly logger = new AppLogger(StaffService.name);
+
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     private config: ConfigService<AppConfig>,
@@ -20,107 +28,279 @@ export class StaffService {
   private getArgon2Options() {
     return {
       type: argon2.argon2id,
-      memoryCost: this.config.get<number>('argon2.memory', { infer: true }) ?? 65536,
+      memoryCost:
+        this.config.get<number>('argon2.memory', { infer: true }) ?? 65536,
       timeCost: this.config.get<number>('argon2.time', { infer: true }) ?? 3,
     };
   }
 
   async create(dto: CreateUserDto): Promise<User> {
-    const pepper = this.config.get('pinPepper', { infer: true });
+    try {
+      this.logger.infoWithContext('Creating new user', {
+        name: dto.name,
+        role: dto.role,
+        pin: dto.pin,
+      });
 
-    await this.ensurePinUnique(dto.pin);
+      const pepper = this.config.get('pinPepper', { infer: true });
 
-    const pinHash = (await argon2.hash(dto.pin + pepper, this.getArgon2Options() as any)) as unknown as string;
+      await this.ensurePinUnique(dto.pin);
 
-    const user = this.userRepo.create({
-      ...dto,
-      pinHash,
-      hireDate: dto.hireDate ? new Date(dto.hireDate) : undefined,
-      birthday: dto.birthday ? new Date(dto.birthday) : undefined,
-    });
-    return this.userRepo.save(user) as Promise<User>;
+      const pinHash = (await argon2.hash(
+        dto.pin + pepper,
+        this.getArgon2Options() as any,
+      )) as unknown as string;
+
+      const user = this.userRepo.create({
+        ...dto,
+        pinHash,
+        hireDate: dto.hireDate ? new Date(dto.hireDate) : undefined,
+        birthday: dto.birthday ? new Date(dto.birthday) : undefined,
+      });
+      const saved = await this.userRepo.save(user);
+
+      this.logger.infoWithContext('User created successfully', {
+        id: saved.id,
+        name: saved.name,
+      });
+      return saved;
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to create user',
+        error,
+        context: { dto },
+      });
+      throw error;
+    }
   }
 
-  async findAll(query?: { role?: Role; status?: UserStatus; search?: string; page?: number; pageSize?: number }) {
-    const page = query?.page ?? 1;
-    const pageSize = query?.pageSize ?? 50;
-    const qb = this.userRepo.createQueryBuilder('u')
-      .where('u.status != :inactiva', { inactiva: UserStatus.INACTIVA });
+  async findAll(query?: {
+    role?: Role;
+    status?: UserStatus;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    try {
+      const page = query?.page ?? 1;
+      const pageSize = query?.pageSize ?? 50;
+      const qb = this.userRepo
+        .createQueryBuilder('u')
+        .where('u.status != :inactiva', { inactiva: UserStatus.INACTIVA });
 
-    if (query?.role) qb.andWhere('u.role = :role', { role: query.role });
-    if (query?.status) qb.andWhere('u.status = :status', { status: query.status });
-    if (query?.search) qb.andWhere('u.name ILIKE :search', { search: `%${query.search}%` });
+      if (query?.role) qb.andWhere('u.role = :role', { role: query.role });
+      if (query?.status)
+        qb.andWhere('u.status = :status', { status: query.status });
+      if (query?.search)
+        qb.andWhere('u.name ILIKE :search', { search: `%${query.search}%` });
 
-    const [items, total] = await qb
-      .orderBy('u.name')
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
+      const [items, total] = await qb
+        .orderBy('u.name')
+        .skip((page - 1) * pageSize)
+        .take(pageSize)
+        .getManyAndCount();
 
-    return { items, total, page, pageSize };
+      this.logger.infoWithContext('Users retrieved', {
+        count: items.length,
+        total,
+        page,
+        pageSize,
+      });
+      return { items, total, page, pageSize };
+    } catch (error) {
+      this.logger.errorWithContext({
+        message: 'Failed to retrieve users',
+        error,
+        context: { query },
+      });
+      throw error;
+    }
   }
 
   async findOne(id: string): Promise<User> {
-    const user = await this.userRepo.findOne({ where: { id } });
-    if (!user) throw new NotFoundException('Usuaria no encontrada');
-    return user;
+    try {
+      const user = await this.userRepo.findOne({ where: { id } });
+      if (!user) {
+        this.logger.errorWithContext({
+          message: 'User not found',
+          context: { id },
+        });
+        throw new NotFoundException(`Usuaria no encontrada (ID: ${id})`);
+      }
+      return user;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to retrieve user',
+        error,
+        context: { id },
+      });
+      throw error;
+    }
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id);
-    Object.assign(user, dto);
-    if (dto.hireDate) user.hireDate = new Date(dto.hireDate);
-    if (dto.birthday) user.birthday = new Date(dto.birthday);
-    return this.userRepo.save(user);
+    try {
+      this.logger.infoWithContext('Updating user', {
+        id,
+        changes: Object.keys(dto),
+      });
+      const user = await this.findOne(id);
+      Object.assign(user, dto);
+      if (dto.hireDate) user.hireDate = new Date(dto.hireDate);
+      if (dto.birthday) user.birthday = new Date(dto.birthday);
+      const saved = await this.userRepo.save(user);
+      this.logger.infoWithContext('User updated successfully', { id });
+      return saved;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to update user',
+        error,
+        context: { id, dto },
+      });
+      throw error;
+    }
   }
 
   async updatePin(id: string, pin: string): Promise<void> {
-    await this.ensurePinUnique(pin, id);
-    const pepper = this.config.get('pinPepper', { infer: true });
-    const pinHash = (await argon2.hash(pin + pepper, this.getArgon2Options() as any)) as unknown as string;
-    await this.userRepo.update(id, { pinHash });
+    try {
+      this.logger.infoWithContext('Updating user PIN', { id });
+      await this.ensurePinUnique(pin, id);
+      const pepper = this.config.get('pinPepper', { infer: true });
+      const pinHash = (await argon2.hash(
+        pin + pepper,
+        this.getArgon2Options() as any,
+      )) as unknown as string;
+      await this.userRepo.update(id, { pinHash });
+      this.logger.infoWithContext('User PIN updated successfully', { id });
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to update user PIN',
+        error,
+        context: { id },
+      });
+      throw error;
+    }
   }
 
   async softDelete(id: string): Promise<void> {
-    await this.userRepo.update(id, { status: UserStatus.INACTIVA });
+    try {
+      this.logger.infoWithContext('Soft deleting user', { id });
+      await this.userRepo.update(id, { status: UserStatus.INACTIVA });
+      this.logger.infoWithContext('User soft deleted successfully', { id });
+    } catch (error) {
+      this.logger.errorWithContext({
+        message: 'Failed to soft delete user',
+        error,
+        context: { id },
+      });
+      throw error;
+    }
   }
 
-  async updatePermissions(id: string, dto: UpdatePermissionsDto): Promise<User> {
-    const user = await this.findOne(id);
+  async updatePermissions(
+    id: string,
+    dto: UpdatePermissionsDto,
+  ): Promise<User> {
+    try {
+      this.logger.infoWithContext('Updating user permissions', {
+        id,
+        role: dto.role,
+        permissionsCount: dto.permissions
+          ? Object.keys(dto.permissions).length
+          : 0,
+      });
+      const user = await this.findOne(id);
 
-    if (dto.role && dto.role !== user.role) {
-      user.role = dto.role;
-      user.permissions = {};
+      if (dto.role && dto.role !== user.role) {
+        this.logger.infoWithContext('User role changed', {
+          id,
+          oldRole: user.role,
+          newRole: dto.role,
+        });
+        user.role = dto.role;
+        user.permissions = {};
+      }
+
+      if (dto.permissions) {
+        user.permissions = dto.permissions;
+      }
+
+      const saved = await this.userRepo.save(user);
+      this.logger.infoWithContext('User permissions updated successfully', {
+        id,
+      });
+      return saved;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to update user permissions',
+        error,
+        context: { id, dto },
+      });
+      throw error;
     }
-
-    if (dto.permissions) {
-      user.permissions = dto.permissions;
-    }
-
-    return this.userRepo.save(user);
   }
 
   async findPublicHints() {
-    return this.userRepo.find({
-      where: { status: UserStatus.ACTIVA },
-      select: ['id', 'name', 'initials', 'color'],
-      order: { name: 'ASC' },
-    });
+    try {
+      const result = await this.userRepo.find({
+        where: { status: UserStatus.ACTIVA },
+        select: ['id', 'name', 'role', 'initials', 'color', 'avatarHue'],
+        order: { name: 'ASC' },
+      });
+      this.logger.infoWithContext('Public hints retrieved', {
+        count: result.length,
+      });
+      return result;
+    } catch (error) {
+      this.logger.errorWithContext({
+        message: 'Failed to retrieve public hints',
+        error,
+      });
+      throw error;
+    }
   }
 
-  private async ensurePinUnique(pin: string, excludeId?: string): Promise<void> {
-    const pepper = this.config.get('pinPepper', { infer: true });
-    const activeUsers = await this.userRepo
-      .createQueryBuilder('u')
-      .where('u.status != :inactiva', { inactiva: UserStatus.INACTIVA })
-      .getMany();
+  private async ensurePinUnique(
+    pin: string,
+    excludeId?: string,
+  ): Promise<void> {
+    try {
+      const pepper = this.config.get('pinPepper', { infer: true });
+      const activeUsers = await this.userRepo
+        .createQueryBuilder('u')
+        .where('u.status != :inactiva', { inactiva: UserStatus.INACTIVA })
+        .getMany();
 
-    for (const u of activeUsers) {
-      if (excludeId && u.id === excludeId) continue;
-      const match = await argon2.verify(u.pinHash, pin + pepper, this.getArgon2Options() as any) as boolean;
-      if (match) {
-        throw new ConflictException('PIN ya está en uso por otra usuaria');
+      for (const u of activeUsers) {
+        if (excludeId && u.id === excludeId) continue;
+        const match = await argon2.verify(
+          u.pinHash,
+          pin + pepper,
+          this.getArgon2Options() as any,
+        );
+        if (match) {
+          this.logger.warnWithContext('Duplicate PIN detected', {
+            pin,
+            existingUserId: u.id,
+            existingUserName: u.name,
+            excludeId,
+          });
+          throw new ConflictException('PIN ya está en uso por otra usuaria');
+        }
       }
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to verify PIN uniqueness',
+        error,
+        context: { excludeId },
+      });
+      throw error;
     }
   }
 }

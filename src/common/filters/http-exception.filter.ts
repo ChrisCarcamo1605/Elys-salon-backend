@@ -4,15 +4,18 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { AppLogger } from '../utils/logger';
 
 interface ErrorBody {
   error: {
     code: string;
     message: string;
     fields?: Record<string, string>;
+    timestamp?: string;
+    path?: string;
+    method?: string;
   };
 }
 
@@ -29,7 +32,7 @@ const STATUS_CODE_MAP: Record<number, string> = {
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
+  private readonly logger = new AppLogger('HttpExceptionFilter');
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -64,14 +67,54 @@ export class HttpExceptionFilter implements ExceptionFilter {
           message = obj.error;
         }
       }
+
+      this.logger.errorWithContext({
+        message: `HTTP Error ${status}: ${message}`,
+        error: exception,
+        context: {
+          method: request.method,
+          path: request.url,
+          query: request.query,
+          body: request.body,
+          params: request.params,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'],
+        },
+      });
     } else if (exception instanceof Error) {
-      this.logger.error(exception.stack);
+      this.logger.errorWithContext({
+        message: `Unhandled Error: ${exception.message}`,
+        error: exception,
+        context: {
+          method: request.method,
+          path: request.url,
+          query: request.query,
+          body: request.body,
+          params: request.params,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'],
+        },
+        stack: exception.stack,
+      });
+    } else {
+      this.logger.errorWithContext({
+        message: `Unknown exception caught`,
+        error: exception,
+        context: {
+          method: request.method,
+          path: request.url,
+          type: typeof exception,
+        },
+      });
     }
 
     const body: ErrorBody = {
       error: {
         code: STATUS_CODE_MAP[status] ?? 'UNKNOWN_ERROR',
         message,
+        timestamp: new Date().toISOString(),
+        path: request.url,
+        method: request.method,
         ...(fields && Object.keys(fields).length > 0 ? { fields } : {}),
       },
     };

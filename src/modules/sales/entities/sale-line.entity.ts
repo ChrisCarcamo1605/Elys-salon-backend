@@ -1,4 +1,10 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { DiscountKind, ItemType } from '../../../common/enums';
 import { Sale } from './sale.entity';
 import { User } from '../../staff/entities/user.entity';
@@ -38,10 +44,21 @@ export class SaleLine {
   @Column({ default: 1 })
   qty: number;
 
-  @Column({ name: 'discount_kind', type: 'enum', enum: DiscountKind, nullable: true })
+  @Column({
+    name: 'discount_kind',
+    type: 'enum',
+    enum: DiscountKind,
+    nullable: true,
+  })
   discountKind: DiscountKind;
 
-  @Column({ name: 'discount_value', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'discount_value',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   discountValue: number;
 
   @ManyToOne(() => User, { nullable: true })

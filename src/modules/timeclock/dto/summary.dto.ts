@@ -4,6 +4,7 @@ export class SummaryDto {
   @IsString()
   range: 'week' | 'biweek' | 'month';
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   userId?: string;
 }

@@ -14,6 +14,7 @@ export class CreateAdjustmentDto {
   @IsEnum(AdjustmentReason)
   reason: AdjustmentReason;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   notes?: string;
 }

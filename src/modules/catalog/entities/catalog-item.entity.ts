@@ -1,6 +1,17 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToMany,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { ItemType } from '../../../common/enums';
 import { Category } from '../../categories/entities/category.entity';
+import { Promotion } from '../../promotions/entities/promotion.entity';
 
 @Entity('catalog_items')
 @Index('idx_catalog_category_active', ['categoryId', 'active'])
@@ -51,6 +62,9 @@ export class CatalogItem {
 
   @Column({ default: true })
   active: boolean;
+
+  @ManyToMany(() => Promotion, (promo) => promo.items)
+  promotions: Promotion[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

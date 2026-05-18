@@ -1,4 +1,12 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { InventoryKind, AdjustmentReason } from '../../../common/enums';
 import { CatalogItem } from '../../catalog/entities/catalog-item.entity';
 import { User } from '../../staff/entities/user.entity';
@@ -25,10 +33,22 @@ export class InventoryEntry {
   @Column({ name: 'stock_after' })
   stockAfter: number;
 
-  @Column({ name: 'unit_cost', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'unit_cost',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   unitCost: number;
 
-  @Column({ name: 'total_cost', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'total_cost',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   totalCost: number;
 
   @Column({ length: 120, nullable: true })

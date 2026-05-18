@@ -1,4 +1,10 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor, Logger } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+  Logger,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
@@ -13,7 +19,10 @@ export class AuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const resource = context.getClass().name.replace('Controller', '').toLowerCase();
+    const resource = context
+      .getClass()
+      .name.replace('Controller', '')
+      .toLowerCase();
 
     return next.handle();
   }

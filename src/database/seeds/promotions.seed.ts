@@ -39,7 +39,7 @@ export async function seedPromotions(ds: DataSource): Promise<Promotion[]> {
 
   const saved: Promotion[] = [];
   for (const data of promos) {
-    const promo = repo.create(data as Partial<Promotion>);
+    const promo = repo.create(data);
     saved.push(await repo.save(promo));
   }
   return saved;

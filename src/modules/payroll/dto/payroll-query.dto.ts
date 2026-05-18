@@ -4,6 +4,7 @@ export class PayrollQueryDto {
   @IsString()
   month: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   period?: 'biweek' | 'month';
 }

@@ -4,6 +4,7 @@ export class CreateCategoryDto {
   @IsString()
   label: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   ordering?: number;
 }

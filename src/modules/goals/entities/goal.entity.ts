@@ -30,7 +30,13 @@ export class Goal {
   @Column({ name: 'reward_type', type: 'enum', enum: RewardType })
   rewardType: RewardType;
 
-  @Column({ name: 'reward_value', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'reward_value',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   rewardValue: number;
 
   @Column({ type: 'enum', enum: GoalTone })

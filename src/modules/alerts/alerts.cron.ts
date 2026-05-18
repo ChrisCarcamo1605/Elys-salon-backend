@@ -16,7 +16,7 @@ export class AlertCrons {
   @Cron('0 8 * * *')
   async handleLowStockCheck() {
     this.logger.log('Running daily low stock check...');
-    // Low stock is computed on-the-fly, no action needed
+    await this.alertsService.checkAllLowStock();
   }
 
   @Cron('0 * * * *')
@@ -28,7 +28,8 @@ export class AlertCrons {
   @Cron('0 9 * * *')
   async handleSlowMoverCheck() {
     this.logger.log('Running slow mover check...');
-    const days = this.config.get<number>('slowMoverDays', { infer: true }) ?? 14;
+    const days =
+      this.config.get<number>('slowMoverDays', { infer: true }) ?? 14;
     await this.alertsService.checkSlowMovers(days);
   }
 }

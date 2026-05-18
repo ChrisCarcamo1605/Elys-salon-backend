@@ -66,9 +66,10 @@ export class GoalsService {
       if (s.customerIsNew) newClients++;
     }
 
-    const saleIds = sales.map(s => s.id);
+    const saleIds = sales.map((s) => s.id);
     if (saleIds.length > 0) {
-      const lines = await this.lineRepo.createQueryBuilder('l')
+      const lines = await this.lineRepo
+        .createQueryBuilder('l')
         .where('l.saleId IN (:...ids)', { ids: saleIds })
         .getMany();
 
@@ -78,15 +79,25 @@ export class GoalsService {
       }
     }
 
-    const stats = { totalSales, retailSales, servicesDone, newClients, tipsCollected };
+    const stats = {
+      totalSales,
+      retailSales,
+      servicesDone,
+      newClients,
+      tipsCollected,
+    };
 
-    const progress = goals.map(goal => {
+    const progress = goals.map((goal) => {
       const value = (stats as any)[goal.metric] ?? 0;
-      const pct = goal.target > 0 ? Math.min((value / goal.target) * 100, 100) : 0;
+      const pct =
+        goal.target > 0 ? Math.min((value / goal.target) * 100, 100) : 0;
       const achieved = value >= goal.target;
       let earned = 0;
       if (achieved) {
-        earned = goal.rewardType === ('fixed' as any) ? goal.rewardValue : value * (goal.rewardValue / 100);
+        earned =
+          goal.rewardType === ('fixed' as any)
+            ? goal.rewardValue
+            : value * (goal.rewardValue / 100);
       }
 
       return { goal, value, pct, achieved, earned };

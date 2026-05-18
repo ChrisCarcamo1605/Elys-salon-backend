@@ -1,6 +1,7 @@
 import { IsOptional, IsString } from 'class-validator';
 
 export class PunchInDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   source?: string;
 }

@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { AlertType, AlertStatus, DiscountKind } from '../../../common/enums';
 import { User } from '../../staff/entities/user.entity';
 
@@ -30,10 +39,21 @@ export class Alert {
   @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })
   resolvedAt: Date;
 
-  @Column({ name: 'suggested_offer_kind', type: 'enum', enum: DiscountKind, nullable: true })
+  @Column({
+    name: 'suggested_offer_kind',
+    type: 'enum',
+    enum: DiscountKind,
+    nullable: true,
+  })
   suggestedOfferKind: DiscountKind;
 
-  @Column({ name: 'suggested_offer_value', type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'suggested_offer_value',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   suggestedOfferValue: number;
 
   @Column({ name: 'offer_active', default: false })

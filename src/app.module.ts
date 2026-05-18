@@ -47,8 +47,8 @@ import { EventsModule } from './modules/events/events.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService<AppConfig, true>) => [
         {
-          ttl: config.get('throttle.loginTtl', { infer: true }) * 1000,
-          limit: config.get('throttle.loginLimit', { infer: true }),
+          ttl: config.get('throttle.ttl', { infer: true }) * 1000,
+          limit: config.get('throttle.limit', { infer: true }),
         },
       ],
     }),
@@ -79,4 +79,5 @@ import { EventsModule } from './modules/events/events.module';
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })
-export class AppModule {}
+export class AppModule {
+}

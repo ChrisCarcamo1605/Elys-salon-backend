@@ -1,32 +1,53 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
   const logger = new Logger('Bootstrap');
 
+  // Global error filter
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  // Security and performance middleware
   app.use(helmet());
   app.use(compression());
 
-  app.setGlobalPrefix('v1');
+  app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: false },
+      exceptionFactory: (errors) => {
+        const errorMessages = errors
+          .map((e) => {
+            const constraints = e.constraints
+              ? Object.values(e.constraints).join(', ')
+              : '';
+            return `${e.property}: ${constraints}`;
+          })
+          .join('; ');
+        logger.error(`Validation failed: ${errorMessages}`);
+        return new BadRequestException(errorMessages);
+      },
     }),
   );
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3002',
+    origin: '*',
     credentials: true,
   });
 
+  // Swagger documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Ely's Salón API")
     .setDescription("API del sistema de gestión del salón de belleza Ely's")
@@ -35,6 +56,18 @@ async function bootstrap(): Promise<void> {
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
+
+  // Global error handlers
+  process.on('unhandledRejection', (reason) => {
+    logger.error(`Unhandled Promise Rejection: ${reason}`);
+    console.error('Unhandled Promise Rejection:', reason);
+  });
+
+  process.on('uncaughtException', (error) => {
+    logger.error(`Uncaught Exception: ${error.message}`);
+    console.error('Uncaught Exception:', error);
+    process.exit(1);
+  });
 
   const port = process.env.PORT ?? 3001;
   await app.listen(port);

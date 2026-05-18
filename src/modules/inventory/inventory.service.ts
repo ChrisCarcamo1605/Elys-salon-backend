@@ -8,78 +8,182 @@ import { InventoryKind } from '../../common/enums';
 import { CreateEntryDto } from './dto/create-entry.dto';
 import { CreateAdjustmentDto } from './dto/create-adjustment.dto';
 import { ListEntriesDto } from './dto/list-entries.dto';
+import { AppLogger } from '../../common/utils/logger';
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new AppLogger(InventoryService.name);
+
   constructor(
-    @InjectRepository(InventoryEntry) private entryRepo: Repository<InventoryEntry>,
+    @InjectRepository(InventoryEntry)
+    private entryRepo: Repository<InventoryEntry>,
     @InjectRepository(CatalogItem) private catalogRepo: Repository<CatalogItem>,
     private eventEmitter: EventEmitter2,
   ) {}
 
-  async createEntry(dto: CreateEntryDto, userId: string): Promise<InventoryEntry> {
-    const product = await this.catalogRepo.findOne({ where: { id: dto.productId } });
-    if (!product) throw new NotFoundException('Producto no encontrado');
+  async createEntry(
+    dto: CreateEntryDto,
+    userId: string,
+  ): Promise<InventoryEntry> {
+    try {
+      this.logger.infoWithContext('Creating inventory entry', {
+        productId: dto.productId,
+        qtyDelta: dto.qtyDelta,
+        userId,
+      });
 
-    const stockAfter = (product.stock ?? 0) + dto.qtyDelta;
-    product.stock = stockAfter;
-    await this.catalogRepo.save(product);
+      const product = await this.catalogRepo.findOne({
+        where: { id: dto.productId },
+      });
+      if (!product) {
+        this.logger.errorWithContext({
+          message: 'Product not found for inventory entry',
+          context: { productId: dto.productId },
+        });
+        throw new NotFoundException('Producto no encontrado');
+      }
 
-    const entry = this.entryRepo.create({
-      ...dto,
-      stockAfter,
-      createdById: userId,
-    });
-    const saved = await this.entryRepo.save(entry);
-    this.eventEmitter.emit('inventory.changed', { productId: dto.productId, stockAfter });
-    return saved;
+      const stockBefore = product.stock ?? 0;
+      const stockAfter = stockBefore + dto.qtyDelta;
+      product.stock = stockAfter;
+      await this.catalogRepo.save(product);
+
+      const entry = this.entryRepo.create({
+        ...dto,
+        stockAfter,
+        createdById: userId,
+      });
+      const saved = await this.entryRepo.save(entry);
+
+      this.logger.infoWithContext('Inventory entry created successfully', {
+        entryId: saved.id,
+        productId: dto.productId,
+        stockBefore,
+        stockAfter,
+        qtyDelta: dto.qtyDelta,
+      });
+
+      this.eventEmitter.emit('inventory.changed', {
+        productId: dto.productId,
+        stockAfter,
+      });
+      return saved;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to create inventory entry',
+        error,
+        context: { dto, userId },
+      });
+      throw error;
+    }
   }
 
-  async createAdjustment(dto: CreateAdjustmentDto, userId: string): Promise<InventoryEntry> {
-    const product = await this.catalogRepo.findOne({ where: { id: dto.productId } });
-    if (!product) throw new NotFoundException('Producto no encontrado');
+  async createAdjustment(
+    dto: CreateAdjustmentDto,
+    userId: string,
+  ): Promise<InventoryEntry> {
+    try {
+      this.logger.infoWithContext('Creating inventory adjustment', {
+        productId: dto.productId,
+        mode: dto.mode,
+        value: dto.value,
+        userId,
+      });
 
-    let qtyDelta: number;
-    let stockAfter: number;
+      const product = await this.catalogRepo.findOne({
+        where: { id: dto.productId },
+      });
+      if (!product) {
+        this.logger.errorWithContext({
+          message: 'Product not found for inventory adjustment',
+          context: { productId: dto.productId },
+        });
+        throw new NotFoundException('Producto no encontrado');
+      }
 
-    if (dto.mode === 'set') {
-      stockAfter = dto.value;
-      qtyDelta = dto.value - (product.stock ?? 0);
-    } else {
-      qtyDelta = dto.value;
-      stockAfter = (product.stock ?? 0) + dto.value;
+      let qtyDelta: number;
+      let stockAfter: number;
+      const stockBefore = product.stock ?? 0;
+
+      if (dto.mode === 'set') {
+        stockAfter = dto.value;
+        qtyDelta = dto.value - stockBefore;
+      } else {
+        qtyDelta = dto.value;
+        stockAfter = stockBefore + dto.value;
+      }
+
+      product.stock = stockAfter;
+      await this.catalogRepo.save(product);
+
+      const entry = this.entryRepo.create({
+        productId: dto.productId,
+        kind: InventoryKind.ADJUSTMENT,
+        qtyDelta,
+        stockAfter,
+        reason: dto.reason,
+        notes: dto.notes,
+        createdById: userId,
+      });
+      const saved = await this.entryRepo.save(entry);
+
+      this.logger.infoWithContext('Inventory adjustment created successfully', {
+        entryId: saved.id,
+        productId: dto.productId,
+        stockBefore,
+        stockAfter,
+        qtyDelta,
+        reason: dto.reason,
+      });
+
+      this.eventEmitter.emit('inventory.changed', {
+        productId: dto.productId,
+        stockAfter,
+      });
+      return saved;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to create inventory adjustment',
+        error,
+        context: { dto, userId },
+      });
+      throw error;
     }
-
-    product.stock = stockAfter;
-    await this.catalogRepo.save(product);
-
-    const entry = this.entryRepo.create({
-      productId: dto.productId,
-      kind: InventoryKind.ADJUSTMENT,
-      qtyDelta,
-      stockAfter,
-      reason: dto.reason,
-      notes: dto.notes,
-      createdById: userId,
-    });
-    const saved = await this.entryRepo.save(entry);
-    this.eventEmitter.emit('inventory.changed', { productId: dto.productId, stockAfter });
-    return saved;
   }
 
   async findAll(query: ListEntriesDto) {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 50;
-    const qb = this.entryRepo.createQueryBuilder('e')
-      .leftJoinAndSelect('e.product', 'product')
-      .leftJoinAndSelect('e.createdBy', 'createdBy')
-      .orderBy('e.createdAt', 'DESC')
-      .skip((page - 1) * pageSize)
-      .take(pageSize);
+    try {
+      const page = query.page ?? 1;
+      const pageSize = query.pageSize ?? 50;
+      const qb = this.entryRepo
+        .createQueryBuilder('e')
+        .leftJoinAndSelect('e.product', 'product')
+        .leftJoinAndSelect('e.createdBy', 'createdBy')
+        .orderBy('e.createdAt', 'DESC')
+        .skip((page - 1) * pageSize)
+        .take(pageSize);
 
-    if (query.productId) qb.andWhere('e.productId = :pid', { pid: query.productId });
+      if (query.productId)
+        qb.andWhere('e.productId = :pid', { pid: query.productId });
 
-    const [items, total] = await qb.getManyAndCount();
-    return { items, total, page, pageSize };
+      const [items, total] = await qb.getManyAndCount();
+      this.logger.infoWithContext('Inventory entries retrieved', {
+        count: items.length,
+        total,
+        page,
+        pageSize,
+        productId: query.productId,
+      });
+      return { items, total, page, pageSize };
+    } catch (error) {
+      this.logger.errorWithContext({
+        message: 'Failed to retrieve inventory entries',
+        error,
+        context: { query },
+      });
+      throw error;
+    }
   }
 }

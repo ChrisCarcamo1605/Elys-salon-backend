@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GoalsService } from './goals.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
@@ -20,7 +30,9 @@ export class GoalsController {
 
   @Get('progress')
   getProgress(@CurrentUser() user: AuthUser, @Query('userId') userId?: string) {
-    return this.service.getProgress(userId === 'me' || !userId ? user.id : userId);
+    return this.service.getProgress(
+      userId === 'me' || !userId ? user.id : userId,
+    );
   }
 
   @Get(':id')

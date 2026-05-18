@@ -3,21 +3,29 @@ import { IsNumber, Min } from 'class-validator';
 import { SaleStatus } from '../../../common/enums';
 
 export class ListSalesDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   employeeId?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   from?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   to?: string;
 
-  @IsOptional() @IsEnum(SaleStatus)
+  @IsOptional()
+  @IsEnum(SaleStatus)
   status?: SaleStatus;
 
-  @IsOptional() @IsNumber() @Min(1)
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
   page?: number;
 
-  @IsOptional() @IsNumber() @Min(1)
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
   pageSize?: number;
 }

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Patch, Post, Put, Param, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Put,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { AlertsService } from './alerts.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
@@ -9,6 +18,7 @@ import { ResolveAlertDto } from './dto/resolve-alert.dto';
 import { SnoozeAlertDto } from './dto/snooze-alert.dto';
 import { StockConfigDto } from './dto/stock-config.dto';
 import { UpdateSlowMoverDto } from './dto/update-slow-mover.dto';
+import { UpdateProductStockAlertDto } from './dto/update-product-stock-alert.dto';
 
 @Controller('alerts')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -23,7 +33,11 @@ export class AlertsController {
 
   @Post(':id/resolve')
   @RequirePermission('analytics.read')
-  resolve(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto?: ResolveAlertDto) {
+  resolve(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto?: ResolveAlertDto,
+  ) {
     return this.service.resolve(id, user.id, dto);
   }
 
@@ -49,5 +63,14 @@ export class AlertsController {
   @RequirePermission('offers.write')
   updateSlowMover(@Param('id') id: string, @Body() dto: UpdateSlowMoverDto) {
     return this.service.updateSlowMover(id, dto);
+  }
+
+  @Patch('stock-config/:id')
+  @RequirePermission('inventory.adjust')
+  updateProductStockAlert(
+    @Param('id') id: string,
+    @Body() dto: UpdateProductStockAlertDto,
+  ) {
+    return this.service.updateProductStockAlert(id, dto);
   }
 }

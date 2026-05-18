@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinTable,
+  ManyToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { CatalogItem } from '../../catalog/entities/catalog-item.entity';
 
 @Entity('promotions')
 export class Promotion {
@@ -19,6 +28,14 @@ export class Promotion {
 
   @Column({ default: true })
   active: boolean;
+
+  @ManyToMany(() => CatalogItem, (item) => item.promotions, { eager: false })
+  @JoinTable({
+    name: 'promotion_items',
+    joinColumn: { name: 'promotion_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'item_id', referencedColumnName: 'id' },
+  })
+  items: CatalogItem[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

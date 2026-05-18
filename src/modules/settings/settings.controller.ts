@@ -43,7 +43,10 @@ export class PreferencesController {
   }
 
   @Put('preferences')
-  updatePreferences(@CurrentUser() user: AuthUser, @Body() dto: UpdatePreferencesDto) {
+  updatePreferences(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
     return this.service.updatePreferences(user.id, dto.value);
   }
 }

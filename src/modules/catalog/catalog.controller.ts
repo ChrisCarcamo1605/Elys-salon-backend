@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
@@ -21,7 +31,11 @@ export class CatalogController {
     if (!type && !categoryId && active === undefined) {
       return this.service.getCatalog();
     }
-    return this.service.findAll(type, categoryId, active === 'true' ? true : active === 'false' ? false : undefined);
+    return this.service.findAll(
+      type,
+      categoryId,
+      active === 'true' ? true : active === 'false' ? false : undefined,
+    );
   }
 
   @Get(':id')

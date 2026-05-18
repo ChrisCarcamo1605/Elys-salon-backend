@@ -12,7 +12,13 @@ export interface AppConfig {
   cron: { lowStockCheck: string; alertSnoozeReopen: string };
   slowMoverDays: number;
   lockTimeoutSec: number;
-  throttle: { loginTtl: number; loginLimit: number; loginBlockMin: number };
+  throttle: {
+    ttl: number;
+    limit: number;
+    loginTtl: number;
+    loginLimit: number;
+    loginBlockMin: number;
+  };
   systemUserPin: string;
 }
 
@@ -51,9 +57,13 @@ export const configuration = (): AppConfig => ({
   slowMoverDays: parseInt(process.env.SLOW_MOVER_DAYS ?? '14', 10),
   lockTimeoutSec: parseInt(process.env.LOCK_TIMEOUT_SEC ?? '120', 10),
   throttle: {
+    ttl: parseInt(process.env.THROTTLE_TTL ?? '60', 10),
+    limit: parseInt(process.env.THROTTLE_LIMIT ?? '1000', 10),
     loginTtl: parseInt(process.env.THROTTLE_LOGIN_TTL ?? '30', 10),
     loginLimit: parseInt(process.env.THROTTLE_LOGIN_LIMIT ?? '5', 10),
     loginBlockMin: parseInt(process.env.THROTTLE_LOGIN_BLOCK_MIN ?? '5', 10),
   },
   systemUserPin: process.env.SYSTEM_USER_PIN ?? '',
 });
+
+
