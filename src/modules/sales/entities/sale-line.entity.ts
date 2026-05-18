@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { DiscountKind, ItemType } from '../../../common/enums';
 import { Sale } from './sale.entity';
 import { User } from '../../staff/entities/user.entity';
@@ -10,12 +10,14 @@ export class SaleLine {
   id: string;
 
   @ManyToOne(() => Sale, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'sale_id' })
   sale: Sale;
 
   @Column({ name: 'sale_id' })
   saleId: string;
 
   @ManyToOne(() => CatalogItem)
+  @JoinColumn({ name: 'item_id' })
   item: CatalogItem;
 
   @Column({ name: 'item_id' })
@@ -43,8 +45,9 @@ export class SaleLine {
   discountValue: number;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'discount_by_id' })
   discountBy: User | null;
 
-  @Column({ name: 'discount_by', type: 'uuid', nullable: true })
+  @Column({ name: 'discount_by_id', type: 'uuid', nullable: true })
   discountById: string | null;
 }

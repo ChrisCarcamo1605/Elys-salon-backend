@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { AlertType, AlertStatus, DiscountKind } from '../../../common/enums';
 import { User } from '../../staff/entities/user.entity';
 
@@ -21,9 +21,10 @@ export class Alert {
   snoozedUntil: Date;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'resolved_by_id' })
   resolvedBy: User | null;
 
-  @Column({ name: 'resolved_by', type: 'uuid', nullable: true })
+  @Column({ name: 'resolved_by_id', type: 'uuid', nullable: true })
   resolvedById: string | null;
 
   @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })

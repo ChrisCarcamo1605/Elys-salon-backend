@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { PaymentMethod } from '../../../common/enums';
 import { Sale } from './sale.entity';
 
@@ -8,6 +8,7 @@ export class SalePayment {
   id: string;
 
   @ManyToOne(() => Sale, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'sale_id' })
   sale: Sale;
 
   @Column({ name: 'sale_id' })

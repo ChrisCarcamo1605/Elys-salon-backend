@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { InventoryKind, AdjustmentReason } from '../../../common/enums';
 import { CatalogItem } from '../../catalog/entities/catalog-item.entity';
 import { User } from '../../staff/entities/user.entity';
@@ -10,6 +10,7 @@ export class InventoryEntry {
   id: string;
 
   @ManyToOne(() => CatalogItem)
+  @JoinColumn({ name: 'product_id' })
   product: CatalogItem;
 
   @Column({ name: 'product_id' })
@@ -43,9 +44,10 @@ export class InventoryEntry {
   notes: string;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'created_by_id' })
   createdBy: User;
 
-  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string;
 
   @CreateDateColumn({ name: 'created_at' })

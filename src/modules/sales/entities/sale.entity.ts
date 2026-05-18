@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { SaleStatus } from '../../../common/enums';
 import { User } from '../../staff/entities/user.entity';
 
@@ -12,6 +12,7 @@ export class Sale {
   number: number;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'employee_id' })
   employee: User;
 
   @Column({ name: 'employee_id' })
@@ -45,9 +46,10 @@ export class Sale {
   voidedAt: Date;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'voided_by_id' })
   voidedBy: User | null;
 
-  @Column({ name: 'voided_by', type: 'uuid', nullable: true })
+  @Column({ name: 'voided_by_id', type: 'uuid', nullable: true })
   voidedById: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from '../../staff/entities/user.entity';
 
 @Entity('audit_log')
@@ -8,6 +8,7 @@ export class AuditLog {
   id: string;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column({ name: 'user_id', nullable: true })
