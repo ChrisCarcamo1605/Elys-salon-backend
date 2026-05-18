@@ -1,74 +1,88 @@
-export enum RoleName {
-  SYSTEM = 'system',
+export enum Role {
   ADMIN = 'admin',
-  SUPERVISOR = 'supervisor',
-  EMPLOYEE = 'employee',
+  EMPLEADA = 'empleada',
 }
 
-export enum TicketStatus {
-  ACTIVE = 'ACTIVE',
-  VOIDED = 'VOIDED',
+export enum UserStatus {
+  ACTIVA = 'activa',
+  VACACIONES = 'vacaciones',
+  INACTIVA = 'inactiva',
 }
 
-export enum TicketItemType {
-  PRODUCT = 'PRODUCT',
-  SERVICE = 'SERVICE',
+export enum PayType {
+  SALARIO = 'salario',
+  SALARIO_COMISION = 'salario + comisión',
+  COMISION = 'comisión',
 }
 
-export enum InventoryMovementType {
-  IN = 'IN',
-  OUT = 'OUT',
-  ADJUSTMENT = 'ADJUSTMENT',
+export enum SaleStatus {
+  COMPLETED = 'completed',
+  VOIDED = 'voided',
 }
 
-export enum InventoryReferenceType {
-  SALE = 'SALE',
-  VOID = 'VOID',
-  PURCHASE = 'PURCHASE',
-  MANUAL = 'MANUAL',
+export enum ItemType {
+  SERVICE = 'S',
+  PRODUCT = 'P',
 }
 
-export enum ExpenseType {
-  UTILITIES = 'UTILITIES',
-  PAYROLL = 'PAYROLL',
-  INVENTORY_PURCHASE = 'INVENTORY_PURCHASE',
+export enum DiscountKind {
+  AMOUNT = 'amount',
+  PERCENT = 'percent',
 }
 
-export enum PayrollPeriodStatus {
-  OPEN = 'OPEN',
-  CLOSED = 'CLOSED',
-  PAID = 'PAID',
+export enum PaymentMethod {
+  CASH = 'cash',
+  CARD = 'card',
+  TRANSFER = 'transfer',
 }
 
-export enum OfferTargetType {
-  PRODUCT = 'PRODUCT',
-  SERVICE = 'SERVICE',
+export enum InventoryKind {
+  PURCHASE = 'purchase',
+  ADJUSTMENT = 'adjustment',
 }
 
-export enum DiscountType {
-  PERCENT = 'PERCENT',
-  AMOUNT = 'AMOUNT',
+export enum AdjustmentReason {
+  CONTEO = 'conteo',
+  MERMA = 'merma',
+  ROBO = 'robo',
+  USO = 'uso',
+  DEVOLUCION = 'devolucion',
+}
+
+export enum TimeEntrySource {
+  UI = 'ui',
+  MANUAL = 'manual',
 }
 
 export enum BonusMetric {
-  SALES_AMOUNT = 'SALES_AMOUNT',
-  TICKET_COUNT = 'TICKET_COUNT',
-  SERVICE_COUNT = 'SERVICE_COUNT',
-  PRODUCT_COUNT = 'PRODUCT_COUNT',
-}
-
-export enum BonusPeriodType {
-  BIWEEKLY = 'BIWEEKLY',
-  MONTHLY = 'MONTHLY',
-}
-
-export enum BonusStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  PAID = 'PAID',
+  TOTAL_SALES = 'totalSales',
+  RETAIL_SALES = 'retailSales',
+  SERVICES_DONE = 'servicesDone',
+  NEW_CLIENTS = 'newClients',
+  TIPS_COLLECTED = 'tipsCollected',
 }
 
 export enum RewardType {
-  PERCENT = 'PERCENT',
-  FIXED = 'FIXED',
+  FIXED = 'fixed',
+  PERCENT = 'percent',
+}
+
+export enum GoalTone {
+  MAGENTA = 'magenta',
+  PURPLE = 'purple',
+  TEAL = 'teal',
+  GREEN = 'green',
+}
+
+export enum AlertType {
+  LOW_STOCK = 'low_stock',
+  DISCOUNT_REVIEW = 'discount_review',
+  SLOW_MOVER = 'slow_mover',
+  PROMO = 'promo',
+}
+
+export enum AlertStatus {
+  ACTIVE = 'active',
+  RESOLVED = 'resolved',
+  SNOOZED = 'snoozed',
 }

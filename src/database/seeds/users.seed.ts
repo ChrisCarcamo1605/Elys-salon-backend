@@ -1,0 +1,64 @@
+import * as argon2 from 'argon2';
+import { DataSource } from 'typeorm';
+import { User } from '../../modules/staff/entities/user.entity';
+import { Role, UserStatus, PayType } from '../../common/enums';
+
+const PEPPER = process.env.PIN_PEPPER ?? '';
+
+export async function seedUsers(ds: DataSource): Promise<User[]> {
+  const repo = ds.getRepository(User);
+
+  const existing = await repo.count();
+  if (existing > 0) return repo.find();
+
+  const systemPinHash = await argon2.hash('SYSTEM_NO_LOGIN' + PEPPER + Date.now());
+  const adminPinHash = await argon2.hash('1234' + PEPPER);
+  const employeePinHash = await argon2.hash('0000' + PEPPER);
+
+  const system = repo.create({
+    name: 'Sistema',
+    role: Role.ADMIN,
+    pinHash: systemPinHash,
+    initials: 'SI',
+    color: '#6b7280',
+    position: 'Sistema',
+    status: UserStatus.INACTIVA,
+    payType: PayType.SALARIO,
+    salary: 0,
+    commissionRate: 0,
+    phone: '0000000000',
+    permissions: {},
+  });
+
+  const admin = repo.create({
+    name: 'Ely Martínez',
+    role: Role.ADMIN,
+    pinHash: adminPinHash,
+    initials: 'EM',
+    color: '#de0fab',
+    position: 'Propietaria',
+    status: UserStatus.ACTIVA,
+    payType: PayType.SALARIO,
+    salary: 8000,
+    commissionRate: 0,
+    avatarHue: 300,
+    permissions: {},
+  });
+
+  const employee = repo.create({
+    name: 'María López',
+    role: Role.EMPLEADA,
+    pinHash: employeePinHash,
+    initials: 'ML',
+    color: '#a855f7',
+    position: 'Estilista',
+    status: UserStatus.ACTIVA,
+    payType: PayType.SALARIO_COMISION,
+    salary: 5000,
+    commissionRate: 10,
+    avatarHue: 270,
+    permissions: {},
+  });
+
+  return repo.save([system, admin, employee]);
+}

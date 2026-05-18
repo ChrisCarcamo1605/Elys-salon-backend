@@ -1,212 +1,179 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import * as argon2 from 'argon2';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
-import { createHash, randomBytes } from 'crypto';
-import { IsNull, MoreThan, Repository } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { AppConfig } from '../../config/configuration';
-import {
-  AuthUser,
-  JwtPayload,
-  RefreshPayload,
-} from '../../common/types/auth-user.type';
-import { User } from '../users/entities/user.entity';
-import { UsersService } from '../users/users.service';
-import { RefreshToken } from './entities/refresh-token.entity';
+import { Session } from './entities/session.entity';
+import { User } from '../staff/entities/user.entity';
+import { Sale } from '../sales/entities/sale.entity';
+import { SaleLine } from '../sales/entities/sale-line.entity';
+import { Role, UserStatus, SaleStatus, ItemType } from '../../common/enums';
+import { AuthUser } from '../../common/types/auth-user.type';
 
-export interface IssueTokensResult {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export interface LoginResult extends IssueTokensResult {
-  user: AuthUser;
+export interface MonthStats {
+  totalSales: number;
+  retailSales: number;
+  servicesDone: number;
+  newClients: number;
+  tipsCollected: number;
 }
 
 @Injectable()
 export class AuthService {
+  private loginAttempts = new Map<string, { count: number; blockedUntil: Date | null }>();
+
   constructor(
-    private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
-    private readonly config: ConfigService<AppConfig, true>,
-    @InjectRepository(RefreshToken)
-    private readonly refreshRepo: Repository<RefreshToken>,
+    @InjectRepository(Session) private sessionRepo: Repository<Session>,
+    @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(Sale) private saleRepo: Repository<Sale>,
+    @InjectRepository(SaleLine) private lineRepo: Repository<SaleLine>,
+    private jwtService: JwtService,
+    private config: ConfigService<AppConfig>,
   ) {}
 
-  async validateCredentials(email: string, password: string): Promise<User> {
-    const user = await this.usersService.findByEmailWithPassword(email);
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-    if (!user.active) {
-      throw new ForbiddenException('Usuario desactivado');
-    }
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-    return user;
-  }
+  async unlock(pin: string, ip: string, userAgent: string) {
+    const key = ip;
+    const attempt = this.loginAttempts.get(key);
 
-  async login(
-    user: User,
-    ip?: string,
-    userAgent?: string,
-  ): Promise<LoginResult> {
-    await this.usersService.updateLastLogin(user.id);
-    const tokens = await this.issueTokens(user, ip, userAgent);
-    const authUser = this.toAuthUser(user);
-    return { ...tokens, user: authUser };
-  }
-
-  async refresh(
-    rawToken: string,
-    ip?: string,
-    userAgent?: string,
-  ): Promise<IssueTokensResult> {
-    let payload: RefreshPayload;
-    try {
-      payload = await this.jwtService.verifyAsync<RefreshPayload>(rawToken, {
-        secret: this.config.get('jwt.refreshSecret', { infer: true }),
-      });
-    } catch {
-      throw new UnauthorizedException('Refresh token inválido');
+    if (attempt && attempt.blockedUntil && attempt.blockedUntil > new Date()) {
+      const remaining = Math.ceil((attempt.blockedUntil.getTime() - Date.now()) / 60000);
+      throw new HttpException(`Demasiados intentos. Intenta de nuevo en ${remaining} minutos.`, HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    const tokenHash = this.hashToken(rawToken);
-    const stored = await this.refreshRepo.findOne({
-      where: {
-        id: payload.tokenId,
-        userId: payload.sub,
-        tokenHash,
-        revokedAt: IsNull(),
-        expiresAt: MoreThan(new Date()),
-      },
-    });
-
-    if (!stored) {
-      // posible reuse — revocar todos los tokens del usuario por seguridad
-      await this.refreshRepo.update(
-        { userId: payload.sub, revokedAt: IsNull() },
-        { revokedAt: new Date() },
-      );
-      throw new UnauthorizedException('Refresh token inválido o reutilizado');
-    }
-
-    const user = await this.usersService.findById(payload.sub);
-    if (!user.active) {
-      throw new ForbiddenException('Usuario desactivado');
-    }
-
-    const newTokens = await this.issueTokens(user, ip, userAgent);
-    const newPayload = await this.jwtService.verifyAsync<RefreshPayload>(
-      newTokens.refreshToken,
-      {
-        secret: this.config.get('jwt.refreshSecret', { infer: true }),
-      },
-    );
-
-    stored.revokedAt = new Date();
-    stored.replacedBy = newPayload.tokenId;
-    await this.refreshRepo.save(stored);
-
-    return newTokens;
-  }
-
-  async logout(userId: string, rawToken?: string): Promise<void> {
-    if (rawToken) {
-      const tokenHash = this.hashToken(rawToken);
-      await this.refreshRepo.update(
-        { userId, tokenHash, revokedAt: IsNull() },
-        { revokedAt: new Date() },
-      );
-    } else {
-      await this.refreshRepo.update(
-        { userId, revokedAt: IsNull() },
-        { revokedAt: new Date() },
-      );
-    }
-  }
-
-  async me(userId: string): Promise<AuthUser> {
-    const user = await this.usersService.findById(userId);
-    return this.toAuthUser(user);
-  }
-
-  private async issueTokens(
-    user: User,
-    ip?: string,
-    userAgent?: string,
-  ): Promise<IssueTokensResult> {
-    const permissions = this.usersService.computeEffectivePermissions(user);
-    const accessPayload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role.name,
-      permissions,
+    const pepper = this.config.get('pinPepper', { infer: true });
+    const argon2Opts: any = {
+      type: argon2.argon2id,
+      memoryCost: this.config.get<number>('argon2.memory', { infer: true }) ?? 65536,
+      timeCost: this.config.get<number>('argon2.time', { infer: true }) ?? 3,
     };
-    const accessToken = await this.jwtService.signAsync(accessPayload, {
-      secret: this.config.get('jwt.accessSecret', { infer: true }),
-      expiresIn: this.config.get('jwt.accessExpires', { infer: true }),
-    });
 
-    const tokenId = randomBytes(16).toString('hex');
-    const refreshPayload: RefreshPayload = { sub: user.id, tokenId };
-    const refreshToken = await this.jwtService.signAsync(refreshPayload, {
-      secret: this.config.get('jwt.refreshSecret', { infer: true }),
-      expiresIn: this.config.get('jwt.refreshExpires', { infer: true }),
-      jwtid: tokenId,
-    });
+    const users = await this.userRepo.find({ where: { status: UserStatus.ACTIVA } });
 
-    const refreshExpires = this.parseDuration(
-      this.config.get('jwt.refreshExpires', { infer: true }),
-    );
-    const tokenHash = this.hashToken(refreshToken);
+    let matched: User | null = null;
+    for (const user of users) {
+      const valid = await argon2.verify(user.pinHash, pin + pepper, argon2Opts);
+      if (valid) {
+        matched = user;
+        break;
+      }
+    }
 
-    await this.refreshRepo.insert({
-      id: tokenId,
-      userId: user.id,
+    if (!matched) {
+      const current = this.loginAttempts.get(key) ?? { count: 0, blockedUntil: null };
+      current.count += 1;
+
+      const limit = this.config.get<number>('throttle.loginLimit', { infer: true }) ?? 5;
+      const blockMin = this.config.get<number>('throttle.loginBlockMin', { infer: true }) ?? 5;
+
+      if (current.count >= limit) {
+        current.blockedUntil = new Date(Date.now() + blockMin * 60 * 1000);
+        current.count = 0;
+      }
+
+      this.loginAttempts.set(key, current);
+
+      if (current.blockedUntil) {
+        throw new HttpException('Demasiados intentos. Bloqueado temporalmente.', HttpStatus.TOO_MANY_REQUESTS);
+      }
+      throw new UnauthorizedException('PIN incorrecto');
+    }
+
+    this.loginAttempts.delete(key);
+
+    const payload = { sub: matched.id, role: matched.role };
+    const token = this.jwtService.sign(payload);
+    const tokenHash = (await argon2.hash(token, argon2Opts)) as unknown as string;
+
+    const session = this.sessionRepo.create({
+      userId: matched.id,
       tokenHash,
-      expiresAt: new Date(Date.now() + refreshExpires),
-      ip: ip ?? null,
-      userAgent: userAgent ?? null,
+      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+      ip,
+      userAgent,
     });
+    await this.sessionRepo.save(session);
 
-    return { accessToken, refreshToken };
+    const { pinHash, permissions: userOverrides, ...rest } = matched;
+    const monthStats = await this.computeMonthStats(matched.id);
+
+    return {
+      token,
+      expiresAt: session.expiresAt,
+      user: rest,
+      monthStats,
+    };
   }
 
-  private toAuthUser(user: User): AuthUser {
+  async lock(userId: string, token: string) {
+    const argon2Opts: any = { type: argon2.argon2id, memoryCost: 65536, timeCost: 3 };
+    const sessions = await this.sessionRepo.find({ where: { userId } });
+    for (const s of sessions) {
+      if (await argon2.verify(s.tokenHash, token, argon2Opts)) {
+        s.revokedAt = new Date();
+        await this.sessionRepo.save(s);
+      }
+    }
+    return { ok: true };
+  }
+
+  async validateUser(userId: string): Promise<AuthUser | null> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user || user.status !== UserStatus.ACTIVA) return null;
     return {
       id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      role: user.role.name,
-      permissions: this.usersService.computeEffectivePermissions(user),
+      name: user.name,
+      role: user.role,
+      permissions: user.permissions ?? {},
     };
   }
 
-  private hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
+  async getMe(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    const { pinHash, ...rest } = user;
+    return rest;
   }
 
-  private parseDuration(value: string): number {
-    const match = /^(\d+)([smhd])$/.exec(value);
-    if (!match) {
-      return parseInt(value, 10) * 1000;
+  private async computeMonthStats(userId: string): Promise<MonthStats> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const sales = await this.saleRepo.find({
+      where: {
+        employeeId: userId,
+        status: SaleStatus.COMPLETED,
+        createdAt: Between(startOfMonth, endOfMonth),
+      },
+    });
+
+    let totalSales = 0;
+    let tipsCollected = 0;
+    let newClients = 0;
+
+    for (const s of sales) {
+      totalSales += Number(s.total);
+      tipsCollected += Number(s.tip);
+      if (s.customerIsNew) newClients++;
     }
-    const n = parseInt(match[1], 10);
-    const unit = match[2];
-    const multipliers = {
-      s: 1000,
-      m: 60_000,
-      h: 3_600_000,
-      d: 86_400_000,
-    } as const;
-    return n * multipliers[unit as keyof typeof multipliers];
+
+    const saleIds = sales.map(s => s.id);
+    let servicesDone = 0;
+    let retailSales = 0;
+
+    if (saleIds.length > 0) {
+      const lines = await this.lineRepo.createQueryBuilder('l')
+        .where('l.saleId IN (:...ids)', { ids: saleIds })
+        .getMany();
+
+      for (const l of lines) {
+        if (l.itemType === ItemType.SERVICE) servicesDone += l.qty;
+        if (l.itemType === ItemType.PRODUCT) retailSales += Number(l.price) * l.qty;
+      }
+    }
+
+    return { totalSales, retailSales, servicesDone, newClients, tipsCollected };
   }
 }

@@ -15,3 +15,4 @@ allowBuilds:
   '@swc/core': true
   unrs-resolver: true
   msgpackr-extract: true
+  argon2: true

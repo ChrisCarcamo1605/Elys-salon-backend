@@ -4,21 +4,26 @@ API NestJS para el sistema de gestión del salón de belleza Ely's.
 
 ## Stack
 
-- NestJS 11 + TypeScript
-- TypeORM + PostgreSQL (Supabase)
-- JWT (access + refresh con rotación) + Passport
-- BullMQ + Redis (jobs y correos)
-- Swagger en `/api/docs`
+- **Runtime**: Node 20 LTS
+- **Framework**: NestJS 11 + TypeScript estricto
+- **ORM**: TypeORM 0.3 (migraciones, sin `synchronize`)
+- **DB**: PostgreSQL 16
+- **Cache/Queue**: Redis + BullMQ
+- **Auth**: JWT con PIN de 4 dígitos + argon2id + pepper
+- **Validación**: class-validator + class-transformer
+- **Docs**: Swagger UI en `/api/docs`
+- **Real-time**: WebSocket (fase tardía)
+- **Email**: Resend (alt: SMTP via @nestjs-modules/mailer)
 
 ## Setup
 
 ```bash
-cp .env.example .env
-# editar .env con DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, SYSTEM_USER_*, etc.
+cp .env.example .env.dev
+# editar .env.dev con DATABASE_URL, JWT_SECRET, PIN_PEPPER, etc.
 
 pnpm install
 pnpm migration:run    # aplica migraciones
-pnpm seed             # crea roles, permisos y usuario system
+pnpm seed             # crea permisos, usuarias, catálogo, metas, settings
 pnpm start:dev        # http://localhost:3001
 ```
 
@@ -39,34 +44,50 @@ pnpm start:dev        # http://localhost:3001
 
 ## Estado por fase
 
-- [x] Fase 0: scaffold
-- [x] Fase 1: Auth + RBAC + Users
-- [ ] Fase 2: Productos, Servicios, Categorías
-- [ ] Fase 3: Ventas, Tickets, Inventario
-- [ ] Fase 4: Gastos, Planilla
-- [ ] Fase 5: Ofertas
-- [ ] Fase 6: Asistencias, Bonos
-- [ ] Fase 7: Email, Reportes
-- [ ] Fase 8: Analíticas
-- [ ] Fase 9: Audit log, hardening, deploy
+- [x] Fase 0: Setup
+- [x] Fase 1: Auth (PIN) + Plantilla + Permisos
+- [x] Fase 2: Categorías + Catálogo unificado
+- [x] Fase 3: Ventas + Inventario
+- [x] Fase 4: Asistencia + Metas/Bonos
+- [x] Fase 5: Promociones + Alertas
+- [x] Fase 6: Nómina
+- [x] Fase 7: Analíticas + Reportes (stubs)
+- [x] Fase 8: Settings + Preferencias
+- [ ] Fase 9: WebSocket multi-terminal + Audit hardening + Deploy
 
 ## Auth — Endpoints clave
 
 | Método | Path | Descripción | Acceso |
 |--------|------|-------------|--------|
-| POST | `/api/auth/login` | Login email+password | público |
-| POST | `/api/auth/refresh` | Rotar tokens | público |
-| POST | `/api/auth/logout` | Revocar refresh token | autenticado |
-| GET | `/api/auth/me` | Usuario actual + permisos | autenticado |
-| GET | `/api/users` | Listar (paginado) | admin/supervisor |
-| POST | `/api/users` | Crear | admin |
-| POST | `/api/users/:id/permissions` | Otorgar permiso especial | admin |
-| GET | `/api/roles` | Listar roles + permisos | admin/supervisor |
-| PUT | `/api/roles/:id/permissions` | Reconfigurar permisos de rol | **system** |
+| POST | `/v1/auth/unlock` | Login con PIN de 4 dígitos | público |
+| POST | `/v1/auth/lock` | Invalida token (auditoría) | autenticado |
+| GET | `/v1/auth/me` | Usuario actual | autenticado |
+| GET | `/v1/staff/public` | Hints para lockscreen (id, name, initials, color) | público |
+| GET | `/v1/staff` | Lista completa con HR | admin |
+| PATCH | `/v1/staff/:id/pin` | Cambiar PIN | admin |
+| PATCH | `/v1/staff/:id/permissions` | Override permisos por usuaria | admin |
+| GET | `/v1/permissions` | Matriz global admin × empleada | admin |
+| PUT | `/v1/permissions` | Reemplaza matriz | admin |
+
+## Permisos
+
+- **Matriz global** en `permissions_matrix` define defaults para `admin` y `empleada`.
+- **Overrides individuales** en `users.permissions` (JSONB): `{ "Modificar precios y descuentos": true }`.
+- `PermissionsGuard` evalúa: override individual → default del rol → 403.
+
+## Convenciones API
+
+- **Base URL**: `/v1`
+- **Formato**: JSON
+- **Timestamps**: ISO 8601 UTC
+- **Moneda**: MXN, `numeric(10,2)`
+- **IDs**: UUID v4
+- **Paginación**: `?page=1&pageSize=50 → { items, total, page, pageSize }`
+- **Errores**: `{ "error": { "code", "message", "fields?" } }` en es-MX
+- **Auth**: Bearer token en header `Authorization`
 
 ## Guards globales
 
-- `JwtAuthGuard` — todos los endpoints requieren bearer token excepto los marcados `@Public()`.
-- `RolesGuard` — chequea `@Roles(...)`. `system` bypasa siempre.
-- `PermissionsGuard` — chequea `@RequirePermissions(...)`. Usa unión `rol.permisos ∪ usuario.permisos_extra`.
-- `ThrottlerGuard` — rate limiting global.
+- `JwtAuthGuard` — Todos los endpoints requieren token excepto `@Public()`.
+- `PermissionsGuard` — Evalúa permisos con override → default del rol.
+- `ThrottlerGuard` — Rate limiting global. `/v1/auth/unlock` con límite de 5 intentos/30s → 429 por 5min.

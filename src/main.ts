@@ -1,13 +1,18 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
+import compression from 'compression';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const logger = new Logger('Bootstrap');
 
-  app.setGlobalPrefix('api');
+  app.use(helmet());
+  app.use(compression());
+
+  app.setGlobalPrefix('v1');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -23,7 +28,7 @@ async function bootstrap(): Promise<void> {
   });
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle("Ely's Salon API")
+    .setTitle("Ely's Salón API")
     .setDescription("API del sistema de gestión del salón de belleza Ely's")
     .setVersion('0.1.0')
     .addBearerAuth()
@@ -34,7 +39,7 @@ async function bootstrap(): Promise<void> {
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   logger.log(`Backend escuchando en :${port}`);
-  logger.log(`Swagger en http://localhost:${port}/api/docs`);
+  logger.log(`Swagger en http://localhost:${port}/v1/docs`);
 }
 
 void bootstrap();
