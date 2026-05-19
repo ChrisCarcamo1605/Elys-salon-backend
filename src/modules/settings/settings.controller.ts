@@ -16,7 +16,6 @@ export class SettingsController {
 
   @Public()
   @Get()
-  @RequirePermission('users.write')
   getAll() {
     return this.service.getAll();
   }
