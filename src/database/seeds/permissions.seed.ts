@@ -40,33 +40,14 @@ const PERMISSIONS: PermDef[] = [
   { perm: 'categories.write',          admin: true, empleada: false },
 ];
 
-// Entradas antiguas con nombres en español que deben eliminarse
-const LEGACY_PERMS = [
-  'Modificar precios y descuentos',
-  'Anular ventas',
-  'Gestionar inventario',
-  'Gestionar usuarios',
-  'Ver analíticas',
-  'Gestionar nómina',
-  'Gestionar metas y bonos',
-  'Gestionar promociones',
-  'Gestionar alertas',
-  'Gestionar ajustes',
-  'Ver reportes',
-  'Registrar ventas',
-  'Ver inventario',
-  'Marcar entrada/salida',
-  'Ver progreso propio',
-];
+
 
 export async function seedPermissions(
   ds: DataSource,
 ): Promise<PermissionsMatrix[]> {
   const repo = ds.getRepository(PermissionsMatrix);
 
-  for (const perm of LEGACY_PERMS) {
-    await repo.delete({ perm });
-  }
+
 
   for (const p of PERMISSIONS) {
     await repo.save({ perm: p.perm, admin: p.admin, empleada: p.empleada });

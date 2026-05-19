@@ -8,7 +8,7 @@ const GOALS: Partial<Goal>[] = [
     label: 'Meta de ventas',
     description: 'Alcanzar $3,000 en ventas mensuales',
     metric: BonusMetric.TOTAL_SALES,
-    unit: 'MXN',
+    unit: 'USD',
     target: 3000,
     reward: 'Bono de ventas',
     rewardType: RewardType.FIXED,

@@ -4,7 +4,7 @@ import { Setting } from '../../modules/settings/entities/setting.entity';
 const SETTINGS: { key: string; value: Record<string, unknown> }[] = [
   {
     key: 'business',
-    value: { name: "Ely's Salón de Belleza", phone: '871 123 4567', email: 'contacto@elys-salon.com', address: 'Av. Hidalgo 124, Centro, Torreón, Coahuila', rfc: '' },
+    value: { name: "Ely's Salón de Belleza", phone: '', email: '', address: '', rfc: '' },
   },
   { key: 'tax', value: { rate: 16, includedInPrice: true } },
   {

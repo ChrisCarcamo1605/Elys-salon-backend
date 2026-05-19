@@ -15,7 +15,6 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
     'SYSTEM_NO_LOGIN' + PEPPER + Date.now(),
   );
   const adminPinHash = await argon2.hash('1234' + PEPPER);
-  const employeePinHash = await argon2.hash('0000' + PEPPER);
 
   const system = repo.create({
     name: 'Sistema',
@@ -33,7 +32,7 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
   });
 
   const admin = repo.create({
-    name: 'Ely Martínez',
+    name: 'Ely Mojica',
     role: Role.ADMIN,
     pinHash: adminPinHash,
     initials: 'EM',
@@ -41,26 +40,12 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
     position: 'Propietaria',
     status: UserStatus.ACTIVA,
     payType: PayType.SALARIO,
-    salary: 8000,
+    salary: 0,
     commissionRate: 0,
     avatarHue: 300,
     permissions: {},
   });
 
-  const employee = repo.create({
-    name: 'María López',
-    role: Role.EMPLEADA,
-    pinHash: employeePinHash,
-    initials: 'ML',
-    color: '#a855f7',
-    position: 'Estilista',
-    status: UserStatus.ACTIVA,
-    payType: PayType.SALARIO_COMISION,
-    salary: 5000,
-    commissionRate: 10,
-    avatarHue: 270,
-    permissions: {},
-  });
 
-  return repo.save([system, admin, employee]);
+  return repo.save([system, admin]);
 }
