@@ -44,7 +44,12 @@ async function bootstrap(): Promise<void> {
   );
 
   app.enableCors({
-    origin: [ process.env.CORS_ORIGIN ?? 'http://localhost:3001' , 'http://localhost:3000' , 'react-frontend-dev-567b.up.railway.app'],
+    origin: [
+      process.env.CORS_ORIGIN ?? 'http://localhost:3001',
+      'http://localhost:3000',
+      'https://react-frontend-dev-c187.up.railway.app',
+      'https://elysalon.shop',
+    ],
     credentials: true,
   });
 
