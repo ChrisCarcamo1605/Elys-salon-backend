@@ -94,12 +94,12 @@ export class SalesService {
           await queryRunner.manager.save(item);
         }
 
-        const lineTotal = lineDto.price * lineDto.qty;
+        const lineTotal = lineDto.basePrice * lineDto.qty;
         let lineDiscount = 0;
         if (lineDto.discountKind === DiscountKind.PERCENT) {
           lineDiscount = lineTotal * ((lineDto.discountValue ?? 0) / 100);
         } else if (lineDto.discountKind === DiscountKind.AMOUNT) {
-          lineDiscount = lineDto.discountValue ?? 0;
+          lineDiscount = (lineDto.discountValue ?? 0) * lineDto.qty;
         }
 
         subtotal += lineTotal;
