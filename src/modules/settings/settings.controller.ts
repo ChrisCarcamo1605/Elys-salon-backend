@@ -11,10 +11,9 @@ import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SettingsController {
-  constructor(private readonly service: SettingsService) {}
+  constructor(private readonly service: SettingsService) { }
 
   @Get()
-  @RequirePermission('users.write')
   getAll() {
     return this.service.getAll();
   }
@@ -35,7 +34,7 @@ export class SettingsController {
 @Controller('me')
 @UseGuards(JwtAuthGuard)
 export class PreferencesController {
-  constructor(private readonly service: SettingsService) {}
+  constructor(private readonly service: SettingsService) { }
 
   @Get('preferences')
   getPreferences(@CurrentUser() user: AuthUser) {
