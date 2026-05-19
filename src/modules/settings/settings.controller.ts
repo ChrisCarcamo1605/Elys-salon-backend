@@ -7,13 +7,16 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthUser } from '../../common/types/auth-user.type';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SettingsController {
   constructor(private readonly service: SettingsService) { }
 
+  @Public()
   @Get()
+  @RequirePermission('users.write')
   getAll() {
     return this.service.getAll();
   }
