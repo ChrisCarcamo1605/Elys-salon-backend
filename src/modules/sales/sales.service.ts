@@ -63,17 +63,33 @@ export class SalesService {
 
         if (lineDto.discountKind || lineDto.discountValue) {
           if (user.role !== 'admin') {
-            const overridden =
-              user.permissions?.['tickets.discount'];
-            if (!overridden) {
-              this.logger.warnWithContext('Unauthorized discount attempt', {
-                userId: user.id,
-                userRole: user.role,
-                itemId: lineDto.itemId,
+            if (lineDto.promoId) {
+              // Validate the promo actually belongs to this item and is active
+              const itemWithPromos = await queryRunner.manager.findOne(CatalogItem, {
+                where: { id: lineDto.itemId },
+                relations: ['promotions'],
               });
-              throw new ForbiddenException(
-                'No tienes permiso para aplicar descuentos',
+              const validPromo = itemWithPromos?.promotions?.find(
+                (p) => p.id === lineDto.promoId && p.active,
               );
+              if (!validPromo) {
+                throw new BadRequestException(
+                  'La promoción no es válida para este artículo',
+                );
+              }
+              // Promo discount — no permission needed
+            } else {
+              const overridden = user.permissions?.['tickets.discount'];
+              if (!overridden) {
+                this.logger.warnWithContext('Unauthorized discount attempt', {
+                  userId: user.id,
+                  userRole: user.role,
+                  itemId: lineDto.itemId,
+                });
+                throw new ForbiddenException(
+                  'No tienes permiso para aplicar descuentos',
+                );
+              }
             }
           }
         }

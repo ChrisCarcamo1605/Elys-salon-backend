@@ -11,20 +11,32 @@ export class AnalyticsController {
 
   @Get('sales-by-day')
   @RequirePermission('analytics.read')
-  salesByDay(@Query('range') range?: string) {
-    return this.service.getSalesByDay(range);
+  salesByDay(
+    @Query('range') range?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.getSalesByDay(range, from, to);
   }
 
   @Get('category-revenue')
   @RequirePermission('analytics.read')
-  categoryRevenue(@Query('range') range?: string) {
-    return this.service.getCategoryRevenue(range);
+  categoryRevenue(
+    @Query('range') range?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.getCategoryRevenue(range, from, to);
   }
 
   @Get('top-employees')
   @RequirePermission('analytics.read')
-  topEmployees(@Query('range') range?: string) {
-    return this.service.getTopEmployees(range);
+  topEmployees(
+    @Query('range') range?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.getTopEmployees(range, from, to);
   }
 
   @Get('hourly-traffic')
@@ -35,7 +47,11 @@ export class AnalyticsController {
 
   @Get('kpis')
   @RequirePermission('analytics.read')
-  kpis(@Query('range') range?: string) {
-    return this.service.getKpis(range);
+  kpis(
+    @Query('range') range?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.getKpis(range, from, to);
   }
 }

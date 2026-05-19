@@ -42,6 +42,10 @@ export class SaleLineDto {
   @IsOptional()
   @IsString()
   discountById?: string;
+
+  @IsOptional()
+  @IsString()
+  promoId?: string;
 }
 
 export class SalePaymentDto {
