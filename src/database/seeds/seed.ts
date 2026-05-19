@@ -6,9 +6,7 @@ import { AppDataSource } from '../data-source';
 import { seedPermissions } from './permissions.seed';
 import { seedCategories } from './categories.seed';
 import { seedUsers } from './users.seed';
-import { seedGoals } from './goals.seed';
 import { seedSettings } from './settings.seed';
-import { seedAlerts } from './alerts.seed';
 
 
 async function run(): Promise<void> {
@@ -31,20 +29,8 @@ async function run(): Promise<void> {
     const categories = await seedCategories(AppDataSource);
     console.log(`[seed] ${categories.length} categorías creadas`);
 
-
-
-    const goals = await seedGoals(AppDataSource);
-    console.log(`[seed] ${goals.length} metas creadas`);
-
     const settings = await seedSettings(AppDataSource);
     console.log(`[seed] ${settings.length} settings creados`);
-
-
-
-    const alerts = await seedAlerts(AppDataSource);
-    console.log(`[seed] ${alerts.length} alertas creadas`);
-
-
 
     console.log('[seed] OK');
   } catch (err) {

@@ -12,7 +12,7 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
   if (existing > 0) return repo.find();
 
   const systemPinHash = await argon2.hash(
-    'SYSTEM_NO_LOGIN' + PEPPER + Date.now(),
+    '4859' + PEPPER
   );
   const adminPinHash = await argon2.hash('1234' + PEPPER);
 
