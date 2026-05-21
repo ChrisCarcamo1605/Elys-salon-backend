@@ -1,8 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "pnpm install --frozen-lockfile && pnpm build"
-
-[deploy]
-startCommand = "pnpm migration:run && node dist/main"
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
