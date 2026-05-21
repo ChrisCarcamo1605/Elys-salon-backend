@@ -1,5 +1,5 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import { BonusMetric, RewardType, GoalTone } from '../../../common/enums';
+import { BonusMetric, RewardType, GoalTone, ResetPeriod } from '../../../common/enums';
 
 @Entity('goals')
 export class Goal {
@@ -41,6 +41,9 @@ export class Goal {
 
   @Column({ type: 'enum', enum: GoalTone })
   tone: GoalTone;
+
+  @Column({ type: 'enum', enum: ResetPeriod, default: ResetPeriod.MONTHLY })
+  resetPeriod: ResetPeriod;
 
   @Column({ default: true })
   active: boolean;

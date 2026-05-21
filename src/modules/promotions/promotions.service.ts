@@ -18,7 +18,10 @@ export class PromotionsService {
 
   async findAll(active?: boolean) {
     try {
-      const qb = this.repo.createQueryBuilder('p').orderBy('p.name');
+      const qb = this.repo
+        .createQueryBuilder('p')
+        .leftJoinAndSelect('p.items', 'items')
+        .orderBy('p.name');
       if (active !== undefined) qb.where('p.active = :active', { active });
       const result = await qb.getMany();
       this.logger.infoWithContext('Promotions retrieved', {

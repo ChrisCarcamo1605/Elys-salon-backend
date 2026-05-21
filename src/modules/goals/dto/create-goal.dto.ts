@@ -6,7 +6,7 @@ import {
   IsOptional,
   Length,
 } from 'class-validator';
-import { BonusMetric, RewardType, GoalTone } from '../../../common/enums';
+import { BonusMetric, RewardType, GoalTone, ResetPeriod } from '../../../common/enums';
 
 export class CreateGoalDto {
   @IsString()
@@ -43,6 +43,10 @@ export class CreateGoalDto {
 
   @IsEnum(GoalTone)
   tone: GoalTone;
+
+  @IsOptional()
+  @IsEnum(ResetPeriod)
+  resetPeriod?: ResetPeriod;
 
   @IsOptional()
   @IsBoolean()

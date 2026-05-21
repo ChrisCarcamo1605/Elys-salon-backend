@@ -5,7 +5,7 @@ import { Goal } from './entities/goal.entity';
 import { Sale } from '../sales/entities/sale.entity';
 import { SaleLine } from '../sales/entities/sale-line.entity';
 import { TimeEntry } from '../timeclock/entities/time-entry.entity';
-import { SaleStatus, BonusMetric } from '../../common/enums';
+import { SaleStatus, BonusMetric, ResetPeriod } from '../../common/enums';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 
@@ -42,26 +42,35 @@ export class GoalsService {
     await this.repo.update(id, { active: false });
   }
 
-  async getProgress(userId: string) {
-    const goals = await this.findAll();
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  private getPeriodStart(now: Date, resetPeriod: ResetPeriod): Date {
+    if (resetPeriod === ResetPeriod.BIWEEKLY) {
+      return now.getDate() <= 15
+        ? new Date(now.getFullYear(), now.getMonth(), 1)
+        : new Date(now.getFullYear(), now.getMonth(), 16);
+    }
+    if (resetPeriod === ResetPeriod.NONE) {
+      return new Date(0);
+    }
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
 
+  private async computeStats(userId: string, from: Date, to: Date) {
     const sales = await this.saleRepo.find({
       where: {
         employeeId: userId,
-        createdAt: Between(startOfMonth, now),
+        createdAt: Between(from, to),
         status: SaleStatus.COMPLETED,
       },
     });
 
-    const totalSales = sales.reduce((s, sale) => s + Number(sale.total), 0);
+    let totalSales = 0;
     let tipsCollected = 0;
     let newClients = 0;
     let servicesDone = 0;
     let retailSales = 0;
 
     for (const s of sales) {
+      totalSales += Number(s.total);
       tipsCollected += Number(s.tip);
       if (s.customerIsNew) newClients++;
     }
@@ -79,15 +88,30 @@ export class GoalsService {
       }
     }
 
-    const stats = {
-      totalSales,
-      retailSales,
-      servicesDone,
-      newClients,
-      tipsCollected,
-    };
+    return { totalSales, retailSales, servicesDone, newClients, tipsCollected };
+  }
+
+  async getProgress(userId: string) {
+    const goals = await this.findAll();
+    const now = new Date();
+
+    // Compute stats once per unique reset period
+    const uniquePeriods = [...new Set(goals.map((g) => g.resetPeriod ?? ResetPeriod.MONTHLY))];
+    const statsCache = new Map<string, Awaited<ReturnType<typeof this.computeStats>>>();
+
+    for (const period of uniquePeriods) {
+      const start = this.getPeriodStart(now, period);
+      statsCache.set(period, await this.computeStats(userId, start, now));
+    }
+
+    // Monthly stats for the summary header
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const summaryStats = statsCache.get(ResetPeriod.MONTHLY)
+      ?? await this.computeStats(userId, monthStart, now);
 
     const progress = goals.map((goal) => {
+      const period = goal.resetPeriod ?? ResetPeriod.MONTHLY;
+      const stats = statsCache.get(period)!;
       const value = (stats as any)[goal.metric] ?? 0;
       const pct =
         goal.target > 0 ? Math.min((value / goal.target) * 100, 100) : 0;
@@ -99,10 +123,9 @@ export class GoalsService {
             ? goal.rewardValue
             : value * (goal.rewardValue / 100);
       }
-
       return { goal, value, pct, achieved, earned };
     });
 
-    return { stats, goals: progress };
+    return { stats: summaryStats, goals: progress };
   }
 }

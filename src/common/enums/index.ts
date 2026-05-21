@@ -86,3 +86,9 @@ export enum AlertStatus {
   RESOLVED = 'resolved',
   SNOOZED = 'snoozed',
 }
+
+export enum ResetPeriod {
+  MONTHLY = 'monthly',
+  BIWEEKLY = 'biweekly',
+  NONE = 'none',
+}
