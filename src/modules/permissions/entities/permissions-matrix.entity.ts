@@ -9,5 +9,5 @@ export class PermissionsMatrix {
   admin: boolean;
 
   @Column({ default: false })
-  empleada: boolean;
+  empleado: boolean;
 }

@@ -16,7 +16,7 @@ export class User {
   @Column({ length: 120 })
   name: string;
 
-  @Column({ type: 'enum', enum: Role, default: Role.EMPLEADA })
+  @Column({ type: 'enum', enum: Role, default: Role.EMPLEADO })
   role: Role;
 
   @Column({ name: 'pin_hash', length: 255 })

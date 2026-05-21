@@ -1,6 +1,6 @@
 export enum Role {
   ADMIN = 'admin',
-  EMPLEADA = 'empleado',
+  EMPLEADO = 'empleado',
 }
 
 export enum UserStatus {

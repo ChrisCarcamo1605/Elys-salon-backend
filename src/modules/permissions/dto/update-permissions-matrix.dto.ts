@@ -10,7 +10,7 @@ export class PermissionRowDto {
   admin: boolean;
 
   @IsBoolean()
-  empleada: boolean;
+  empleado: boolean;
 }
 
 export class UpdatePermissionsMatrixDto {

@@ -15,25 +15,25 @@ export class PermissionsService {
   }
 
   async upsertMatrix(
-    rows: { perm: string; admin: boolean; empleada: boolean }[],
+    rows: { perm: string; admin: boolean; empleado: boolean }[],
   ): Promise<PermissionsMatrix[]> {
     for (const row of rows) {
       await this.repo.save({
         perm: row.perm,
         admin: row.admin,
-        empleada: row.empleada,
+        empleado: row.empleado,
       });
     }
     return this.repo.find({ order: { perm: 'ASC' } });
   }
 
   async getDefaultForRole(
-    role: 'admin' | 'empleada',
+    role: 'admin' | 'empleado',
   ): Promise<Record<string, boolean>> {
     const matrix = await this.repo.find();
     const result: Record<string, boolean> = {};
     for (const row of matrix) {
-      result[row.perm] = role === 'admin' ? row.admin : row.empleada;
+      result[row.perm] = role === 'admin' ? row.admin : row.empleado;
     }
     return result;
   }
@@ -43,7 +43,7 @@ export class PermissionsService {
     perm: string,
   ): Promise<boolean> {
     const defaults = await this.getDefaultForRole(
-      user.role as 'admin' | 'empleada',
+      user.role as 'admin' | 'empleado',
     );
     const overridden = user.permissions?.[perm];
     if (overridden !== undefined) return overridden;

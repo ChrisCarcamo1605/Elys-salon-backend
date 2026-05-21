@@ -312,7 +312,7 @@ export class ReportsService {
       columns: [
         { header: 'Ticket #', key: 'number', width: 12, format: 'number' },
         { header: 'Fecha', key: 'date', width: 22, format: 'date' },
-        { header: 'Empleada', key: 'employee', width: 26 },
+        { header: 'Empleado', key: 'employee', width: 26 },
         { header: 'Subtotal', key: 'subtotal', width: 14, format: 'money' },
         { header: 'Descuento', key: 'discount', width: 14, format: 'money' },
         { header: 'Propina', key: 'tip', width: 12, format: 'money' },
@@ -438,7 +438,7 @@ export class ReportsService {
       title: 'Nómina',
       subtitle: `${r.from.toISOString().slice(0, 10)} → ${r.to.toISOString().slice(0, 10)}`,
       columns: [
-        { header: 'Empleada', key: 'name', width: 26 },
+        { header: 'Empleado', key: 'name', width: 26 },
         { header: 'Rol', key: 'role', width: 12 },
         { header: 'Ventas', key: 'sales', width: 14, format: 'money' },
         { header: 'Sueldo', key: 'salary', width: 14, format: 'money' },
@@ -492,7 +492,7 @@ export class ReportsService {
       subtitle: `${fromStr} → ${toStr}`,
       columns: [
         { header: 'Fecha', key: 'date', width: 14 },
-        { header: 'Empleada', key: 'employee', width: 26 },
+        { header: 'Empleado', key: 'employee', width: 26 },
         { header: 'Entrada', key: 'in', width: 12 },
         { header: 'Salida', key: 'out', width: 12 },
         { header: 'Minutos', key: 'mins', width: 12, format: 'number' },
@@ -602,7 +602,7 @@ export class ReportsService {
       title: 'Horas trabajadas',
       subtitle: `${fromStr} → ${toStr}`,
       columns: [
-        { header: 'Empleada', key: 'name', width: 26 },
+        { header: 'Empleado', key: 'name', width: 26 },
         { header: 'Puesto', key: 'position', width: 18 },
         { header: 'Días', key: 'days', width: 10, format: 'number' },
         { header: 'Horas', key: 'hours', width: 12, format: 'number' },
@@ -669,7 +669,7 @@ export class ReportsService {
         { label: 'Margen', value: `${margin.toFixed(1)}%` },
         { label: 'Tickets', value: ticketCount },
         { label: 'Ticket promedio', value: `$${avgTicket.toFixed(2)}` },
-        { label: 'Empleadas activas', value: employees },
+        { label: 'Empleados activos', value: employees },
       ],
     };
   }
