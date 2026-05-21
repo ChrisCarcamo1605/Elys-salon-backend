@@ -155,9 +155,13 @@ export class CatalogService {
         id,
         changes: Object.keys(dto),
       });
-      const item = await this.findOne(id);
-      Object.assign(item, dto);
-      const saved = await this.repo.save(item);
+      await this.findOne(id); // verify exists
+      // Use repo.update to avoid the loaded-relation / FK-column conflict:
+      // Object.assign + save would keep item.category pointing to the old
+      // category object and TypeORM would write back the old FK even when
+      // dto.categoryId has changed.
+      await this.repo.update(id, dto);
+      const saved = await this.findOne(id); // reload with fresh relations
       this.logger.infoWithContext('Catalog item updated successfully', {
         id: saved.id,
       });
