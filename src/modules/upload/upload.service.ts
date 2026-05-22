@@ -12,6 +12,12 @@ export class UploadService {
   private readonly logger = new AppLogger('UploadService');
 
   constructor() {
+    const required = ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'];
+    const missing = required.filter((k) => !process.env[k]);
+    if (missing.length > 0) {
+      throw new Error(`UploadService: missing required env vars: ${missing.join(', ')}`);
+    }
+
     const endpoint = process.env.S3_ENDPOINT!;
     this.bucket = process.env.S3_BUCKET!;
     this.publicBase = `${endpoint}/${this.bucket}`;
