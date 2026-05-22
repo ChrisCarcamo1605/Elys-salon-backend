@@ -13,6 +13,7 @@ import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
 import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AppLogger } from '../../common/utils/logger';
+import { UploadService } from '../upload/upload.service';
 
 @Injectable()
 export class CatalogService {
@@ -23,6 +24,7 @@ export class CatalogService {
     @InjectRepository(Category) private catRepo: Repository<Category>,
     @InjectRepository(Promotion) private promoRepo: Repository<Promotion>,
     private eventEmitter: EventEmitter2,
+    private uploadService: UploadService,
   ) {}
 
   async findAll(type?: ItemType, categoryId?: string, active?: boolean) {
@@ -45,7 +47,7 @@ export class CatalogService {
         categoryId,
         active,
       });
-      return result;
+      return this.uploadService.resolveItems(result);
     } catch (error) {
       this.logger.errorWithContext({
         message: 'Failed to retrieve catalog items',
@@ -80,15 +82,17 @@ export class CatalogService {
         }
       }
 
-      const itemsWithPromos = items.map((item) => ({
-        ...item,
-        promotions: (promoMap.get(item.id) ?? []).map((p) => ({
-          id: p.id,
-          name: p.name,
-          off: p.off,
-          description: p.description,
+      const itemsWithPromos = await this.uploadService.resolveItems(
+        items.map((item) => ({
+          ...item,
+          promotions: (promoMap.get(item.id) ?? []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            off: p.off,
+            description: p.description,
+          })),
         })),
-      }));
+      );
 
       this.logger.infoWithContext('Catalog retrieved', {
         categoriesCount: categories.length,
@@ -114,7 +118,8 @@ export class CatalogService {
         this.logger.warnWithContext('Catalog item not found', { id });
         throw new NotFoundException(`Item no encontrado (ID: ${id})`);
       }
-      return item;
+      const [resolved] = await this.uploadService.resolveItems([item]);
+      return resolved;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       this.logger.errorWithContext({

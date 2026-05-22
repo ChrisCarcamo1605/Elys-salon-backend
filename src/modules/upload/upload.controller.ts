@@ -29,7 +29,6 @@ export class UploadController {
   )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No se recibió ningún archivo');
-    const url = await this.service.uploadImage(file);
-    return { url };
+    return this.service.uploadImage(file);
   }
 }
