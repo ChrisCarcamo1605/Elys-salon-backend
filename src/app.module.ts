@@ -28,6 +28,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { EventsModule } from './modules/events/events.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { EventsModule } from './modules/events/events.module';
     SettingsModule,
     AuditModule,
     EventsModule,
+    UploadModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
