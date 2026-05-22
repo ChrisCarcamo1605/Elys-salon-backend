@@ -25,10 +25,16 @@ export class AppLogger extends Logger {
     };
 
     if (error instanceof Error) {
+      const cause = (error as { cause?: unknown }).cause;
       errorDetails.error = {
         name: error.name,
         message: error.message,
         stack: stack || error.stack,
+        ...(cause !== undefined ? {
+          cause: cause instanceof Error
+            ? { name: cause.name, message: cause.message, stack: cause.stack }
+            : cause,
+        } : {}),
       };
     } else if (typeof error === 'string') {
       errorDetails.error = { message: error };

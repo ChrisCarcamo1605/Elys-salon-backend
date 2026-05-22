@@ -2,12 +2,14 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
+import { AppLogger } from '../../common/utils/logger';
 
 @Injectable()
 export class UploadService {
   private readonly s3: S3Client;
   private readonly bucket: string;
   private readonly publicBase: string;
+  private readonly logger = new AppLogger('UploadService');
 
   constructor() {
     const endpoint = process.env.S3_ENDPOINT!;
@@ -39,7 +41,21 @@ export class UploadService {
         }),
       );
     } catch (err) {
-      throw new InternalServerErrorException('Error al subir la imagen al almacenamiento');
+      this.logger.errorWithContext({
+        message: 'S3 upload failed',
+        error: err,
+        context: {
+          bucket: this.bucket,
+          endpoint: process.env.S3_ENDPOINT,
+          key,
+          fileSize: file.size,
+          mimetype: file.mimetype,
+        },
+      });
+      throw new InternalServerErrorException(
+        'Error al subir la imagen al almacenamiento',
+        { cause: err },
+      );
     }
 
     return `${this.publicBase}/${key}`;

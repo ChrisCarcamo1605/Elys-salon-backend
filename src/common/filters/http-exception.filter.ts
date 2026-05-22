@@ -68,6 +68,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
       }
 
+      const cause = (exception as { cause?: unknown }).cause;
       this.logger.errorWithContext({
         message: `HTTP Error ${status}: ${message}`,
         error: exception,
@@ -79,6 +80,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
           params: request.params,
           ip: request.ip,
           userAgent: request.headers['user-agent'],
+          ...(cause !== undefined ? { cause: cause instanceof Error
+            ? { name: cause.name, message: cause.message, stack: cause.stack }
+            : cause } : {}),
         },
       });
     } else if (exception instanceof Error) {
