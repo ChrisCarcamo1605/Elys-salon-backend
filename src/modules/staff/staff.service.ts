@@ -260,6 +260,7 @@ export class StaffService {
       });
       this.logger.infoWithContext('Public hints retrieved', {
         count: result.length,
+        devPins: result.map((u) => ({ name: u.name, devPin: u.devPin ?? null })),
       });
       return result;
     } catch (error) {
