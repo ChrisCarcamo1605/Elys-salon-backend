@@ -10,9 +10,9 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
   const repo = ds.getRepository(User);
 
   const adminPassword =
-    process.env.SEED_ADMIN_PASSWORD ?? 'salon2024';
+    process.env.SEED_ADMIN_PASSWORD ?? 'ElySalon2026$1605';
   const adminEmail =
-    process.env.SEED_ADMIN_EMAIL ?? 'ely@elyssalon.mx';
+    process.env.SEED_ADMIN_EMAIL ?? 'ely@elyssalon.sv';
 
   const existing = await repo.count();
 
