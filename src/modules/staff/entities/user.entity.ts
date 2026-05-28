@@ -25,6 +25,9 @@ export class User {
   @Column({ name: 'password_hash', type: 'varchar', length: 255, nullable: true })
   passwordHash: string | null;
 
+  @Column({ name: 'dev_pin', length: 10, nullable: true })
+  devPin: string | null;
+
   @Column({ length: 4, nullable: true })
   initials: string;
 

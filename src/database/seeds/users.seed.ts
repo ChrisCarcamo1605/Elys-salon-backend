@@ -28,6 +28,10 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
         admin.passwordHash = await argon2.hash(adminPassword + PEPPER, ARGON2_OPTS);
         dirty = true;
       }
+      if (process.env.NODE_ENV !== 'production' && !admin.devPin) {
+        admin.devPin = '1234';
+        dirty = true;
+      }
       if (dirty) await repo.save(admin);
     }
 
@@ -49,6 +53,7 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
     name: 'Sistema',
     role: Role.ADMIN,
     pinHash: systemPinHash,
+    devPin: null,
     initials: 'SI',
     color: '#6b7280',
     position: 'Sistema',
@@ -65,6 +70,7 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
     role: Role.ADMIN,
     pinHash: adminPinHash,
     passwordHash: adminPasswordHash,
+    devPin: process.env.NODE_ENV !== 'production' ? '1234' : null,
     email: adminEmail,
     initials: 'EM',
     color: '#de0fab',
@@ -101,6 +107,7 @@ async function ensureDevEmployee(
       name: 'María García',
       role: Role.EMPLEADO,
       pinHash,
+      devPin: process.env.NODE_ENV !== 'production' ? '2222' : null,
       initials: 'MG',
       color: '#0fb0de',
       position: 'Empleada',

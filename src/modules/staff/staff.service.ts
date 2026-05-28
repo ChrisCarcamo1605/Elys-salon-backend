@@ -174,6 +174,9 @@ export class StaffService {
         this.getArgon2Options() as any,
       )) as unknown as string;
       await this.userRepo.update(id, { pinHash });
+      if (process.env.NODE_ENV !== 'production') {
+        await this.userRepo.update(id, { devPin: pin });
+      }
       this.logger.infoWithContext('User PIN updated successfully', { id });
     } catch (error) {
       if (error instanceof ConflictException) throw error;
@@ -247,9 +250,12 @@ export class StaffService {
 
   async findPublicHints() {
     try {
+      const isProd = process.env.NODE_ENV === 'production';
+      const selectFields: (keyof User)[] = ['id', 'name', 'role', 'initials', 'color', 'avatarHue'];
+      if (!isProd) selectFields.push('devPin');
       const result = await this.userRepo.find({
         where: { status: UserStatus.ACTIVA },
-        select: ['id', 'name', 'role', 'initials', 'color', 'avatarHue'],
+        select: selectFields,
         order: { name: 'ASC' },
       });
       this.logger.infoWithContext('Public hints retrieved', {
