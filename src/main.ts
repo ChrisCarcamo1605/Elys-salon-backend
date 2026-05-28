@@ -79,6 +79,7 @@ async function bootstrap(): Promise<void> {
   await app.listen(port);
   logger.log(`Backend escuchando en :${port}`);
   logger.log(`Swagger en http://localhost:${port}/v1/docs`);
+  logger.log(`NODE_ENV=${process.env.NODE_ENV ?? '(no definido)'} | DB=${process.env.DATABASE_URL ? 'configurada' : 'FALTA'} | PEPPER=${process.env.PIN_PEPPER ? 'configurado' : 'FALTA'}`);
 }
 
 void bootstrap();
