@@ -7,16 +7,19 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan, IsNull } from 'typeorm';
+import { Repository, Between, MoreThan, IsNull, ILike } from 'typeorm';
 import { AppConfig } from '../../config/configuration';
 import { Session } from './entities/session.entity';
+import { DeviceToken } from './entities/device-token.entity';
 import { User } from '../staff/entities/user.entity';
 import { Sale } from '../sales/entities/sale.entity';
 import { SaleLine } from '../sales/entities/sale-line.entity';
 import { Role, UserStatus, SaleStatus, ItemType } from '../../common/enums';
 import { AuthUser } from '../../common/types/auth-user.type';
+
+const DEVICE_TOKEN_DAYS = 30;
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -39,6 +42,8 @@ export class AuthService {
 
   constructor(
     @InjectRepository(Session) private sessionRepo: Repository<Session>,
+    @InjectRepository(DeviceToken)
+    private deviceTokenRepo: Repository<DeviceToken>,
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Sale) private saleRepo: Repository<Sale>,
     @InjectRepository(SaleLine) private lineRepo: Repository<SaleLine>,
@@ -46,11 +51,11 @@ export class AuthService {
     private config: ConfigService<AppConfig>,
   ) {}
 
-  async unlock(pin: string, ip: string, userAgent: string) {
-    const key = ip;
-    const attempt = this.loginAttempts.get(key);
+  // ─── Rate limiting helpers ────────────────────────────────────────────────
 
-    if (attempt && attempt.blockedUntil && attempt.blockedUntil > new Date()) {
+  private checkRateLimit(key: string): void {
+    const attempt = this.loginAttempts.get(key);
+    if (attempt?.blockedUntil && attempt.blockedUntil > new Date()) {
       const remaining = Math.ceil(
         (attempt.blockedUntil.getTime() - Date.now()) / 60000,
       );
@@ -59,22 +64,174 @@ export class AuthService {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+  }
 
-    const pepper = this.config.get('pinPepper', { infer: true });
-    const argon2Opts: any = {
+  private recordFailedAttempt(key: string): void {
+    const current = this.loginAttempts.get(key) ?? {
+      count: 0,
+      blockedUntil: null,
+    };
+    current.count += 1;
+
+    const limit =
+      this.config.get<number>('throttle.loginLimit', { infer: true }) ?? 5;
+    const blockMin =
+      this.config.get<number>('throttle.loginBlockMin', { infer: true }) ?? 5;
+
+    if (current.count >= limit) {
+      current.blockedUntil = new Date(Date.now() + blockMin * 60 * 1000);
+      current.count = 0;
+      this.loginAttempts.set(key, current);
+      throw new HttpException(
+        'Demasiados intentos. Bloqueado temporalmente.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    this.loginAttempts.set(key, current);
+  }
+
+  private clearRateLimit(key: string): void {
+    this.loginAttempts.delete(key);
+  }
+
+  private getArgon2Opts(): argon2.Options {
+    return {
       type: argon2.argon2id,
       memoryCost:
         this.config.get<number>('argon2.memory', { infer: true }) ?? 65536,
       timeCost: this.config.get<number>('argon2.time', { infer: true }) ?? 3,
     };
+  }
 
+  // ─── Session helper ───────────────────────────────────────────────────────
+
+  private async createJwtSession(
+    user: User,
+    ip: string,
+    userAgent: string,
+  ): Promise<{ token: string; session: Session }> {
+    const payload = { sub: user.id, role: user.role };
+    const token = this.jwtService.sign(payload);
+    const tokenHash = hashToken(token);
+
+    const session = this.sessionRepo.create({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+      ip,
+      userAgent,
+    });
+    await this.sessionRepo.save(session);
+    return { token, session };
+  }
+
+  // ─── Login: email + password → device token + JWT ────────────────────────
+
+  async login(
+    email: string,
+    password: string,
+    ip: string,
+    userAgent: string,
+  ) {
+    this.checkRateLimit(ip);
+
+    const pepper = this.config.get('pinPepper', { infer: true }) ?? '';
+
+    const user = await this.userRepo.findOne({
+      where: { email: ILike(email.trim()), status: UserStatus.ACTIVA },
+    });
+
+    const credentialsInvalid =
+      !user ||
+      !user.passwordHash ||
+      !(await argon2.verify(
+        user.passwordHash,
+        password + pepper,
+        this.getArgon2Opts(),
+      ).catch(() => false));
+
+    if (credentialsInvalid) {
+      this.recordFailedAttempt(ip);
+      throw new UnauthorizedException('Correo o contraseña incorrectos');
+    }
+
+    this.clearRateLimit(ip);
+
+    // Create device token (30 days)
+    const rawDeviceToken = randomBytes(32).toString('hex');
+    const deviceTokenHash = hashToken(rawDeviceToken);
+    const deviceExpiresAt = new Date(
+      Date.now() + DEVICE_TOKEN_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const deviceToken = this.deviceTokenRepo.create({
+      tokenHash: deviceTokenHash,
+      userId: user!.id,
+      expiresAt: deviceExpiresAt,
+      ip,
+      userAgent,
+    });
+    await this.deviceTokenRepo.save(deviceToken);
+
+    const { token, session } = await this.createJwtSession(user!, ip, userAgent);
+
+    const { pinHash, passwordHash, ...rest } = user!;
+    const monthStats = await this.computeMonthStats(user!.id);
+
+    return {
+      deviceToken: rawDeviceToken,
+      deviceExpiresAt,
+      token,
+      expiresAt: session.expiresAt,
+      user: rest,
+      monthStats,
+    };
+  }
+
+  // ─── Unlock: PIN + device token → JWT ────────────────────────────────────
+
+  async unlock(
+    pin: string,
+    rawDeviceToken: string,
+    ip: string,
+    userAgent: string,
+  ) {
+    const isDev = process.env.NODE_ENV !== 'production';
+    const isDevBypass = isDev && rawDeviceToken === '__dev__';
+
+    if (!isDevBypass) {
+      // Validate device token (403 if invalid/expired)
+      const deviceTokenHash = hashToken(rawDeviceToken);
+      const deviceToken = await this.deviceTokenRepo.findOne({
+        where: {
+          tokenHash: deviceTokenHash,
+          revokedAt: IsNull() as any,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      if (!deviceToken) {
+        throw new HttpException(
+          'La sesión del dispositivo expiró. Inicia sesión con correo y contraseña.',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
+    this.checkRateLimit(ip);
+
+    const pepper = this.config.get('pinPepper', { infer: true }) ?? '';
     const users = await this.userRepo.find({
       where: { status: UserStatus.ACTIVA },
     });
 
     let matched: User | null = null;
     for (const user of users) {
-      const valid = await argon2.verify(user.pinHash, pin + pepper, argon2Opts);
+      const valid = await argon2.verify(
+        user.pinHash,
+        pin + pepper,
+        this.getArgon2Opts(),
+      ).catch(() => false);
       if (valid) {
         matched = user;
         break;
@@ -82,49 +239,19 @@ export class AuthService {
     }
 
     if (!matched) {
-      const current = this.loginAttempts.get(key) ?? {
-        count: 0,
-        blockedUntil: null,
-      };
-      current.count += 1;
-
-      const limit =
-        this.config.get<number>('throttle.loginLimit', { infer: true }) ?? 5;
-      const blockMin =
-        this.config.get<number>('throttle.loginBlockMin', { infer: true }) ?? 5;
-
-      if (current.count >= limit) {
-        current.blockedUntil = new Date(Date.now() + blockMin * 60 * 1000);
-        current.count = 0;
-      }
-
-      this.loginAttempts.set(key, current);
-
-      if (current.blockedUntil) {
-        throw new HttpException(
-          'Demasiados intentos. Bloqueado temporalmente.',
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
+      this.recordFailedAttempt(ip);
       throw new UnauthorizedException('PIN incorrecto');
     }
 
-    this.loginAttempts.delete(key);
+    this.clearRateLimit(ip);
 
-    const payload = { sub: matched.id, role: matched.role };
-    const token = this.jwtService.sign(payload);
-    const tokenHash = hashToken(token);
-
-    const session = this.sessionRepo.create({
-      userId: matched.id,
-      tokenHash,
-      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+    const { token, session } = await this.createJwtSession(
+      matched,
       ip,
       userAgent,
-    });
-    await this.sessionRepo.save(session);
+    );
 
-    const { pinHash, ...rest } = matched;
+    const { pinHash, passwordHash, ...rest } = matched;
     const monthStats = await this.computeMonthStats(matched.id);
 
     return {
@@ -135,6 +262,8 @@ export class AuthService {
     };
   }
 
+  // ─── Lock: revoke JWT session ─────────────────────────────────────────────
+
   async lock(userId: string, token: string) {
     const tokenHash = hashToken(token);
     await this.sessionRepo.update(
@@ -143,6 +272,19 @@ export class AuthService {
     );
     return { ok: true };
   }
+
+  // ─── Logout: revoke device token (+ optional JWT session) ─────────────────
+
+  async logout(rawDeviceToken: string) {
+    const deviceTokenHash = hashToken(rawDeviceToken);
+    await this.deviceTokenRepo.update(
+      { tokenHash: deviceTokenHash, revokedAt: IsNull() as any },
+      { revokedAt: new Date() },
+    );
+    return { ok: true };
+  }
+
+  // ─── JWT / session validation ─────────────────────────────────────────────
 
   async validateUser(userId: string): Promise<AuthUser | null> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
@@ -155,7 +297,6 @@ export class AuthService {
     };
   }
 
-  /** Verifica que el token tenga sesión activa, no revocada ni expirada. */
   async validateSession(token: string): Promise<boolean> {
     const tokenHash = hashToken(token);
     const session = await this.sessionRepo.findOne({
@@ -171,9 +312,11 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
-    const { pinHash, ...rest } = user;
+    const { pinHash, passwordHash, ...rest } = user;
     return rest;
   }
+
+  // ─── Stats ────────────────────────────────────────────────────────────────
 
   private async computeMonthStats(userId: string): Promise<MonthStats> {
     const now = new Date();

@@ -22,6 +22,9 @@ export class User {
   @Column({ name: 'pin_hash', length: 255 })
   pinHash: string;
 
+  @Column({ name: 'password_hash', length: 255, nullable: true })
+  passwordHash: string | null;
+
   @Column({ length: 4, nullable: true })
   initials: string;
 

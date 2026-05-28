@@ -4,4 +4,7 @@ export class UnlockDto {
   @IsString()
   @Length(4, 4)
   pin: string;
+
+  @IsString()
+  deviceToken: string;
 }
