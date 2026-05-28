@@ -17,7 +17,7 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
   const existing = await repo.count();
 
   if (existing > 0) {
-    // Patch active admins: set email + passwordHash if missing
+    // Patch active admins: set email + passwordHash + devPin if missing
     const admins = await repo.find({
       where: { role: Role.ADMIN, status: UserStatus.ACTIVA },
     });
@@ -28,15 +28,11 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
         admin.passwordHash = await argon2.hash(adminPassword + PEPPER, ARGON2_OPTS);
         dirty = true;
       }
-      if (process.env.NODE_ENV !== 'production' && !admin.devPin) {
+      if (!admin.devPin) {
         admin.devPin = '1234';
         dirty = true;
       }
       if (dirty) await repo.save(admin);
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      await ensureDevEmployee(repo, PEPPER);
     }
 
     return repo.find();
@@ -70,7 +66,7 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
     role: Role.ADMIN,
     pinHash: adminPinHash,
     passwordHash: adminPasswordHash,
-    devPin: process.env.NODE_ENV !== 'production' ? '1234' : null,
+    devPin: '1234',
     email: adminEmail,
     initials: 'EM',
     color: '#de0fab',
@@ -83,40 +79,5 @@ export async function seedUsers(ds: DataSource): Promise<User[]> {
     permissions: {},
   });
 
-  const saved = await repo.save([system, admin]);
-
-  if (process.env.NODE_ENV !== 'production') {
-    await ensureDevEmployee(repo, PEPPER);
-  }
-
-  return saved;
-}
-
-async function ensureDevEmployee(
-  repo: import('typeorm').Repository<User>,
-  pepper: string,
-): Promise<void> {
-  const exists = await repo.findOne({
-    where: { role: Role.EMPLEADO, status: UserStatus.ACTIVA },
-  });
-  if (exists) return;
-
-  const pinHash = await argon2.hash('2222' + pepper, ARGON2_OPTS);
-  await repo.save(
-    repo.create({
-      name: 'María García',
-      role: Role.EMPLEADO,
-      pinHash,
-      devPin: process.env.NODE_ENV !== 'production' ? '2222' : null,
-      initials: 'MG',
-      color: '#0fb0de',
-      position: 'Empleada',
-      status: UserStatus.ACTIVA,
-      payType: PayType.SALARIO,
-      salary: 0,
-      commissionRate: 0,
-      avatarHue: 200,
-      permissions: {},
-    }),
-  );
+  return repo.save([system, admin]);
 }
