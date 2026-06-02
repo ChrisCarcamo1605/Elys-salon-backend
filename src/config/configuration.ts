@@ -31,7 +31,7 @@ export const configuration = (): AppConfig => ({
   },
   jwt: {
     secret: process.env.JWT_SECRET!,
-    expires: process.env.JWT_EXPIRES ?? '8h',
+    expires: process.env.JWT_EXPIRES ?? '24h',
   },
   argon2: {
     memory: parseInt(process.env.ARGON2_MEMORY ?? '65536', 10),
