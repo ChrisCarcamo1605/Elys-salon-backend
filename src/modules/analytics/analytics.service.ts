@@ -80,7 +80,7 @@ export class AnalyticsService {
 
       const sales = await this.saleRepo.find({
         where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
-        relations: ['lines'],
+        relations: ['lines', 'lines.item'],
         order: { createdAt: 'ASC' },
       });
 
@@ -93,7 +93,7 @@ export class AnalyticsService {
         entry.tickets += 1;
         if (s.lines) {
           for (const l of s.lines) {
-            entry.cost += Number(l.basePrice) * l.qty;
+            entry.cost += Number((l.item as any)?.cost ?? 0) * l.qty;
           }
         }
         byDay.set(day, entry);
@@ -280,10 +280,11 @@ export class AnalyticsService {
       if (currentSaleIds.length > 0) {
         const lines = await this.lineRepo
           .createQueryBuilder('l')
+          .leftJoinAndSelect('l.item', 'item')
           .where('l.saleId IN (:...ids)', { ids: currentSaleIds })
           .getMany();
         for (const l of lines) {
-          totalCost += Number(l.basePrice) * l.qty;
+          totalCost += Number((l as any).item?.cost ?? 0) * l.qty;
         }
       }
 
