@@ -9,17 +9,23 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan, IsNull, ILike } from 'typeorm';
+import { Repository, Between, MoreThan, IsNull, ILike, In } from 'typeorm';
 import { AppConfig } from '../../config/configuration';
 import { Session } from './entities/session.entity';
 import { DeviceToken } from './entities/device-token.entity';
 import { User } from '../staff/entities/user.entity';
 import { Sale } from '../sales/entities/sale.entity';
 import { SaleLine } from '../sales/entities/sale-line.entity';
-import { Role, UserStatus, SaleStatus, ItemType } from '../../common/enums';
+import {
+  Role,
+  UserStatus,
+  SaleStatus,
+  ItemType,
+  DeviceTokenScope,
+} from '../../common/enums';
 import { AuthUser } from '../../common/types/auth-user.type';
 
-const DEVICE_TOKEN_DAYS = 30;
+const DEVICE_TOKEN_DAYS = 90;
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -127,12 +133,7 @@ export class AuthService {
 
   // ─── Login: email + password → device token + JWT ────────────────────────
 
-  async login(
-    email: string,
-    password: string,
-    ip: string,
-    userAgent: string,
-  ) {
+  async login(email: string, password: string, ip: string, userAgent: string) {
     this.checkRateLimit(ip);
 
     const pepper = this.config.get('pinPepper', { infer: true }) ?? '';
@@ -144,11 +145,9 @@ export class AuthService {
     const credentialsInvalid =
       !user ||
       !user.passwordHash ||
-      !(await argon2.verify(
-        user.passwordHash,
-        password + pepper,
-        this.getArgon2Opts(),
-      ).catch(() => false));
+      !(await argon2
+        .verify(user.passwordHash, password + pepper, this.getArgon2Opts())
+        .catch(() => false));
 
     if (credentialsInvalid) {
       this.recordFailedAttempt(ip);
@@ -157,26 +156,33 @@ export class AuthService {
 
     this.clearRateLimit(ip);
 
-    // Create device token (30 days)
+    // Create device token (90 days). Scope determines which roles this device
+    // can unlock by PIN: solo la cuenta admin habilita el desbloqueo de otras
+    // cuentas admin en ese dispositivo.
     const rawDeviceToken = randomBytes(32).toString('hex');
     const deviceTokenHash = hashToken(rawDeviceToken);
     const deviceExpiresAt = new Date(
       Date.now() + DEVICE_TOKEN_DAYS * 24 * 60 * 60 * 1000,
     );
+    const scope =
+      user.role === Role.ADMIN
+        ? DeviceTokenScope.ADMIN
+        : DeviceTokenScope.EMPLEADO;
 
     const deviceToken = this.deviceTokenRepo.create({
       tokenHash: deviceTokenHash,
-      userId: user!.id,
+      userId: user.id,
       expiresAt: deviceExpiresAt,
+      scope,
       ip,
       userAgent,
     });
     await this.deviceTokenRepo.save(deviceToken);
 
-    const { token, session } = await this.createJwtSession(user!, ip, userAgent);
+    const { token, session } = await this.createJwtSession(user, ip, userAgent);
 
-    const { pinHash, passwordHash, ...rest } = user!;
-    const monthStats = await this.computeMonthStats(user!.id);
+    const { pinHash, passwordHash, ...rest } = user;
+    const monthStats = await this.computeMonthStats(user.id);
 
     return {
       deviceToken: rawDeviceToken,
@@ -199,6 +205,9 @@ export class AuthService {
     const isDev = process.env.NODE_ENV !== 'production';
     const isDevBypass = isDev && rawDeviceToken === '__dev__';
 
+    // Alcance del dispositivo: null (solo en dev bypass) = sin restricción de rol.
+    let scope: DeviceTokenScope | null = null;
+
     if (!isDevBypass) {
       // Validate device token (403 if invalid/expired)
       const deviceTokenHash = hashToken(rawDeviceToken);
@@ -216,22 +225,28 @@ export class AuthService {
           HttpStatus.FORBIDDEN,
         );
       }
+
+      scope = deviceToken.scope;
     }
 
     this.checkRateLimit(ip);
 
     const pepper = this.config.get('pinPepper', { infer: true }) ?? '';
+    // Un dispositivo con alcance "empleado" (p.ej. el celular de una sucursal)
+    // nunca puede desbloquear una cuenta admin, aunque alguien adivine su PIN.
+    const allowedRoles =
+      scope === DeviceTokenScope.EMPLEADO ? [Role.EMPLEADO] : undefined;
     const users = await this.userRepo.find({
-      where: { status: UserStatus.ACTIVA },
+      where: allowedRoles
+        ? { status: UserStatus.ACTIVA, role: In(allowedRoles) }
+        : { status: UserStatus.ACTIVA },
     });
 
     let matched: User | null = null;
     for (const user of users) {
-      const valid = await argon2.verify(
-        user.pinHash,
-        pin + pepper,
-        this.getArgon2Opts(),
-      ).catch(() => false);
+      const valid = await argon2
+        .verify(user.pinHash, pin + pepper, this.getArgon2Opts())
+        .catch(() => false);
       if (valid) {
         matched = user;
         break;
@@ -294,6 +309,7 @@ export class AuthService {
       name: user.name,
       role: user.role,
       permissions: user.permissions ?? {},
+      branchId: user.branchId ?? null,
     };
   }
 

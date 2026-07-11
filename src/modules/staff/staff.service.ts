@@ -25,6 +25,12 @@ export class StaffService {
     private config: ConfigService<AppConfig>,
   ) {}
 
+  /** Nunca exponer hashes al cliente; expone `hasPassword` para saber si ya tiene login por correo. */
+  sanitize(user: User) {
+    const { pinHash, passwordHash, ...safe } = user;
+    return { ...safe, hasPassword: !!passwordHash };
+  }
+
   private getArgon2Options() {
     return {
       type: argon2.argon2id,
@@ -79,6 +85,7 @@ export class StaffService {
     role?: Role;
     status?: UserStatus;
     search?: string;
+    branchId?: string;
     page?: number;
     pageSize?: number;
   }) {
@@ -87,6 +94,7 @@ export class StaffService {
       const pageSize = query?.pageSize ?? 50;
       const qb = this.userRepo
         .createQueryBuilder('u')
+        .leftJoinAndSelect('u.branch', 'branch')
         .where('u.status != :inactiva', { inactiva: UserStatus.INACTIVA });
 
       if (query?.role) qb.andWhere('u.role = :role', { role: query.role });
@@ -94,6 +102,8 @@ export class StaffService {
         qb.andWhere('u.status = :status', { status: query.status });
       if (query?.search)
         qb.andWhere('u.name ILIKE :search', { search: `%${query.search}%` });
+      if (query?.branchId)
+        qb.andWhere('u.branchId = :branchId', { branchId: query.branchId });
 
       const [items, total] = await qb
         .orderBy('u.name')
@@ -107,7 +117,12 @@ export class StaffService {
         page,
         pageSize,
       });
-      return { items, total, page, pageSize };
+      return {
+        items: items.map((u) => this.sanitize(u)),
+        total,
+        page,
+        pageSize,
+      };
     } catch (error) {
       this.logger.errorWithContext({
         message: 'Failed to retrieve users',
@@ -120,7 +135,10 @@ export class StaffService {
 
   async findOne(id: string): Promise<User> {
     try {
-      const user = await this.userRepo.findOne({ where: { id } });
+      const user = await this.userRepo.findOne({
+        where: { id },
+        relations: ['branch'],
+      });
       if (!user) {
         this.logger.errorWithContext({
           message: 'User not found',
@@ -182,6 +200,40 @@ export class StaffService {
       if (error instanceof ConflictException) throw error;
       this.logger.errorWithContext({
         message: 'Failed to update user PIN',
+        error,
+        context: { id },
+      });
+      throw error;
+    }
+  }
+
+  async updatePassword(id: string, password: string): Promise<void> {
+    try {
+      this.logger.infoWithContext('Updating user password', { id });
+      const user = await this.findOne(id);
+      if (!user.email) {
+        throw new BadRequestException(
+          'La cuenta necesita un correo antes de asignar contraseña',
+        );
+      }
+
+      const pepper = this.config.get('pinPepper', { infer: true });
+      const passwordHash = (await argon2.hash(
+        password + pepper,
+        this.getArgon2Options() as any,
+      )) as unknown as string;
+      await this.userRepo.update(id, { passwordHash });
+      this.logger.infoWithContext('User password updated successfully', {
+        id,
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      )
+        throw error;
+      this.logger.errorWithContext({
+        message: 'Failed to update user password',
         error,
         context: { id },
       });

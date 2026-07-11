@@ -4,6 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Repository, Between, IsNull } from 'typeorm';
 import { TimeEntry } from './entities/time-entry.entity';
 import { User } from '../staff/entities/user.entity';
@@ -12,6 +13,7 @@ import { PunchInDto } from './dto/punch.dto';
 import { UpdateEntryDto } from './dto/update-entry.dto';
 import { ListTimeEntriesDto } from './dto/list-entries.dto';
 import { AppLogger } from '../../common/utils/logger';
+import { AppConfig } from '../../config/configuration';
 
 @Injectable()
 export class TimeclockService {
@@ -20,40 +22,65 @@ export class TimeclockService {
   constructor(
     @InjectRepository(TimeEntry) private entryRepo: Repository<TimeEntry>,
     @InjectRepository(User) private userRepo: Repository<User>,
+    private config: ConfigService<AppConfig, true>,
   ) {}
+
+  private getTimezone(): string {
+    return (
+      this.config.get<string>('app.timezone', { infer: true }) ??
+      'America/El_Salvador'
+    );
+  }
+
+  /** Calendar day (YYYY-MM-DD) of `date` in the salon's local timezone, not UTC/server-local. */
+  private toLocalDateStr(date: Date): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.getTimezone(),
+    }).format(date);
+  }
+
+  /** `{ date, time }` of `date` (default now) in the salon's local timezone, not UTC/server-local. */
+  private nowLocalParts(date: Date = new Date()): {
+    date: string;
+    time: string;
+  } {
+    const tz = this.getTimezone();
+    return {
+      date: this.toLocalDateStr(date),
+      time: new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+      }).format(date),
+    };
+  }
 
   async punchIn(userId: string): Promise<TimeEntry> {
     try {
       this.logger.infoWithContext('User punching in', { userId });
 
-      const openEntries = await this.entryRepo.find({
+      const openEntry = await this.entryRepo.findOne({
         where: { userId, outAt: IsNull() },
+        order: { date: 'DESC', inAt: 'DESC' },
       });
-      if (openEntries.length > 0) {
+      if (openEntry) {
         this.logger.warnWithContext(
-          'User has open time entries, auto-closing all',
-          {
-            userId,
-            count: openEntries.length,
-            entryIds: openEntries.map((e) => e.id),
-          },
+          'User already has an open time entry, rejecting duplicate punch-in',
+          { userId, entryId: openEntry.id, inAt: openEntry.inAt },
         );
-        for (const entry of openEntries) {
-          entry.outAt = entry.inAt;
-          entry.durationMins = 0;
-          entry.source = TimeEntrySource.MANUAL;
-        }
-        await this.entryRepo.save(openEntries);
+        throw new ConflictException(
+          `Ya tienes una entrada abierta desde las ${openEntry.inAt}`,
+        );
       }
 
-      const now = new Date();
-      const today = now.toISOString().split('T')[0];
-      const timeStr = now.toTimeString().split(' ')[0];
+      const { date, time } = this.nowLocalParts();
 
       const entry = this.entryRepo.create({
         userId,
-        date: today,
-        inAt: timeStr,
+        date,
+        inAt: time,
         source: TimeEntrySource.UI,
       });
       const saved = await this.entryRepo.save(entry);
@@ -61,12 +88,13 @@ export class TimeclockService {
       this.logger.infoWithContext('Punch in successful', {
         entryId: saved.id,
         userId,
-        date: today,
-        inAt: timeStr,
+        date,
+        inAt: time,
       });
 
       return saved;
     } catch (error) {
+      if (error instanceof ConflictException) throw error;
       this.logger.errorWithContext({
         message: 'Failed to punch in',
         error,
@@ -92,7 +120,7 @@ export class TimeclockService {
         throw new BadRequestException('No hay entrada abierta');
       }
 
-      const now = new Date().toTimeString().split(' ')[0];
+      const { time: now } = this.nowLocalParts();
       let saved: TimeEntry;
 
       for (const entry of openEntries) {
@@ -127,7 +155,7 @@ export class TimeclockService {
 
   async getToday(userId: string, role: string) {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = this.toLocalDateStr(new Date());
       const where: any = { date: today };
       if (role !== 'admin') where.userId = userId;
 
@@ -245,7 +273,9 @@ export class TimeclockService {
     try {
       const [inH, inM] = inAt.split(':').map(Number);
       const [outH, outM] = outAt.split(':').map(Number);
-      return outH * 60 + outM - (inH * 60 + inM);
+      let mins = outH * 60 + outM - (inH * 60 + inM);
+      if (mins < 0) mins += 24 * 60; // turno cruza medianoche
+      return mins;
     } catch (error) {
       this.logger.errorWithContext({
         message: 'Failed to compute duration',
@@ -261,19 +291,27 @@ export class TimeclockService {
       this.logger.infoWithContext('Getting time summary', { range, userId });
 
       const now = new Date();
-      let from: Date;
+      let from: string;
       if (range === 'week') {
-        from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        from = this.toLocalDateStr(
+          new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+        );
       } else if (range === 'biweek') {
-        from = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
+        from = this.toLocalDateStr(
+          new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+        );
       } else {
-        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        from = `${new Intl.DateTimeFormat('en-CA', {
+          timeZone: this.getTimezone(),
+          year: 'numeric',
+          month: '2-digit',
+        }).format(now)}-01`;
       }
 
       const qb = this.entryRepo
         .createQueryBuilder('e')
         .leftJoinAndSelect('e.user', 'user')
-        .where('e.date >= :from', { from: from.toISOString().split('T')[0] })
+        .where('e.date >= :from', { from })
         .andWhere('e.outAt IS NOT NULL');
 
       if (userId) qb.andWhere('e.userId = :uid', { uid: userId });
@@ -288,9 +326,7 @@ export class TimeclockService {
         let totalMinutes = 0;
         for (const e of userEntries) {
           if (e.outAt) {
-            const [inH, inM] = e.inAt.split(':').map(Number);
-            const [outH, outM] = e.outAt.split(':').map(Number);
-            totalMinutes += outH * 60 + outM - (inH * 60 + inM);
+            totalMinutes += this.computeDurationMins(e.inAt, e.outAt);
           }
         }
         const totalHours = totalMinutes / 60;

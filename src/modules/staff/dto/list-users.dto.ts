@@ -13,4 +13,8 @@ export class ListUsersDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  branchId?: string;
 }

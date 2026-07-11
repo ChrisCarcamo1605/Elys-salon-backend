@@ -21,6 +21,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePermissionsDto } from './dto/update-permissions.dto';
 import { ListUsersDto } from './dto/list-users.dto';
 import { ChangePinDto } from './dto/change-pin.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { Role } from '../../common/enums';
 
 @Controller('staff')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -35,32 +37,47 @@ export class StaffController {
 
   @Get()
   @RequirePermission('users.read')
-  findAll(@Query() query: ListUsersDto) {
+  findAll(@Query() query: ListUsersDto, @CurrentUser() user: AuthUser) {
+    // No-admin: forzado a su propia sucursal y nunca ve cuentas admin.
+    if (user.role !== Role.ADMIN) {
+      return this.service.findAll({
+        ...query,
+        branchId: user.branchId ?? undefined,
+        role: query.role === Role.ADMIN ? undefined : (query.role ?? Role.EMPLEADO),
+      });
+    }
     return this.service.findAll(query);
   }
 
   @Post()
   @RequirePermission('users.write')
-  create(@Body() dto: CreateUserDto) {
-    return this.service.create(dto);
+  async create(@Body() dto: CreateUserDto) {
+    return this.service.sanitize(await this.service.create(dto));
   }
 
   @Get(':id')
   @RequirePermission('users.read')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  async findOne(@Param('id') id: string) {
+    return this.service.sanitize(await this.service.findOne(id));
   }
 
   @Patch(':id')
   @RequirePermission('users.write')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.service.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.service.sanitize(await this.service.update(id, dto));
   }
 
   @Patch(':id/pin')
   @RequirePermission('users.write')
   changePin(@Param('id') id: string, @Body() dto: ChangePinDto) {
     return this.service.updatePin(id, dto.pin);
+  }
+
+  /** Asigna/actualiza la contraseña de login por correo (p.ej. la cuenta de una sucursal). */
+  @Patch(':id/password')
+  @RequirePermission('users.write')
+  changePassword(@Param('id') id: string, @Body() dto: ChangePasswordDto) {
+    return this.service.updatePassword(id, dto.password);
   }
 
   @Delete(':id')
@@ -71,10 +88,10 @@ export class StaffController {
 
   @Patch(':id/permissions')
   @RequirePermission('users.permissions.manage')
-  updatePermissions(
+  async updatePermissions(
     @Param('id') id: string,
     @Body() dto: UpdatePermissionsDto,
   ) {
-    return this.service.updatePermissions(id, dto);
+    return this.service.sanitize(await this.service.updatePermissions(id, dto));
   }
 }

@@ -3,6 +3,12 @@ export enum Role {
   EMPLEADO = 'empleado',
 }
 
+/** Alcance de un device token: qué roles puede desbloquear por PIN en ese dispositivo. */
+export enum DeviceTokenScope {
+  ADMIN = 'admin',
+  EMPLEADO = 'empleado',
+}
+
 export enum UserStatus {
   ACTIVA = 'activa',
   VACACIONES = 'vacaciones',

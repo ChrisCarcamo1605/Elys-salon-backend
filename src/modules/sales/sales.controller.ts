@@ -14,6 +14,7 @@ import { RequirePermission } from '../../common/decorators/permissions.decorator
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthUser } from '../../common/types/auth-user.type';
+import { Role } from '../../common/enums';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { ListSalesDto } from './dto/list-sales.dto';
 
@@ -30,8 +31,13 @@ export class SalesController {
 
   @Get()
   @RequirePermission('tickets.read')
-  findAll(@Query() query: ListSalesDto) {
-    return this.service.findAll(query);
+  findAll(@Query() query: ListSalesDto, @CurrentUser() user: AuthUser) {
+    // No-admin: forzado a su propia sucursal, ignora cualquier branchId pedido.
+    const scoped =
+      user.role === Role.ADMIN
+        ? query
+        : { ...query, branchId: user.branchId ?? undefined };
+    return this.service.findAll(scoped);
   }
 
   @Get(':id')

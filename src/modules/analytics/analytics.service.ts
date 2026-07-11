@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Repository, Between } from 'typeorm';
 import { Sale } from '../sales/entities/sale.entity';
 import { SaleLine } from '../sales/entities/sale-line.entity';
 import { CatalogItem } from '../catalog/entities/catalog-item.entity';
 import { SaleStatus } from '../../common/enums';
 import { AppLogger } from '../../common/utils/logger';
+import { AppConfig } from '../../config/configuration';
 
 interface CacheEntry<T> {
   data: T;
@@ -23,7 +25,44 @@ export class AnalyticsService {
     @InjectRepository(Sale) private saleRepo: Repository<Sale>,
     @InjectRepository(SaleLine) private lineRepo: Repository<SaleLine>,
     @InjectRepository(CatalogItem) private catalogRepo: Repository<CatalogItem>,
+    private config: ConfigService<AppConfig>,
   ) {}
+
+  private getTimezone(): string {
+    return this.config.get<string>('app.timezone', { infer: true }) ?? 'America/El_Salvador';
+  }
+
+  /** Calendar day (YYYY-MM-DD) of `date` in the salon's local timezone, not UTC. */
+  private toLocalDateStr(date: Date): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: this.getTimezone() }).format(date);
+  }
+
+  /** Hour-of-day (0-23) of `date` in the salon's local timezone, not UTC/server-local. */
+  private toLocalHour(date: Date): number {
+    return parseInt(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: this.getTimezone(),
+        hour: 'numeric',
+        hourCycle: 'h23',
+      }).format(date),
+      10,
+    );
+  }
+
+  private tzOffsetMs(timeZone: string, date: Date): number {
+    const utc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tz = new Date(date.toLocaleString('en-US', { timeZone }));
+    return utc.getTime() - tz.getTime();
+  }
+
+  /** UTC instant bounds of a YYYY-MM-DD calendar day as lived in the salon's local timezone. */
+  private localDayRange(dateStr: string): { from: Date; to: Date } {
+    const naiveStart = new Date(`${dateStr}T00:00:00Z`);
+    const offset = this.tzOffsetMs(this.getTimezone(), naiveStart);
+    const from = new Date(naiveStart.getTime() + offset);
+    const to = new Date(from.getTime() + 24 * 60 * 60 * 1000 - 1);
+    return { from, to };
+  }
 
   private getCached<T>(key: string): T | null {
     const entry = this.cache.get(key);
@@ -41,12 +80,12 @@ export class AnalyticsService {
   }
 
   private parseDateRange(range?: string, from?: string, to?: string) {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = this.toLocalDateStr(new Date());
 
     if (from && to) {
       return {
-        from: new Date(from + 'T00:00:00'),
-        to: new Date(to + 'T23:59:59.999'),
+        from: this.localDayRange(from).from,
+        to: this.localDayRange(to).to,
         cacheKey: `${from}:${to}`,
         includesToday: to >= todayStr,
       };
@@ -54,9 +93,10 @@ export class AnalyticsService {
 
     const r = range ?? '30d';
     if (r === 'today') {
+      const today = this.localDayRange(todayStr);
       return {
-        from: new Date(todayStr + 'T00:00:00'),
-        to: new Date(todayStr + 'T23:59:59.999'),
+        from: today.from,
+        to: today.to,
         cacheKey: 'today',
         includesToday: true,
       };
@@ -71,29 +111,34 @@ export class AnalyticsService {
     };
   }
 
-  async getSalesByDay(range = '30d', from?: string, to?: string) {
+  async getSalesByDay(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `salesByDay:${dr.cacheKey}`;
+      const cacheKey = `salesByDay:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
       const sales = await this.saleRepo.find({
-        where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
-        relations: ['lines'],
+        where: {
+          createdAt: Between(dr.from, dr.to),
+          status: SaleStatus.COMPLETED,
+          ...(branchId ? { branchId } : {}),
+        },
+        relations: ['lines', 'lines.item'],
         order: { createdAt: 'ASC' },
       });
 
       const byDay = new Map<string, { sales: number; cost: number; tickets: number }>();
       for (const s of sales) {
-        const day = (s.createdAt instanceof Date ? s.createdAt : new Date(s.createdAt))
-          .toISOString().split('T')[0];
+        const day = this.toLocalDateStr(
+          s.createdAt instanceof Date ? s.createdAt : new Date(s.createdAt),
+        );
         const entry = byDay.get(day) ?? { sales: 0, cost: 0, tickets: 0 };
         entry.sales += Number(s.total);
         entry.tickets += 1;
         if (s.lines) {
           for (const l of s.lines) {
-            entry.cost += Number(l.basePrice) * l.qty;
+            entry.cost += Number((l.item as any)?.cost ?? 0) * l.qty;
           }
         }
         byDay.set(day, entry);
@@ -118,15 +163,19 @@ export class AnalyticsService {
     }
   }
 
-  async getCategoryRevenue(range = '30d', from?: string, to?: string) {
+  async getCategoryRevenue(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `categoryRevenue:${dr.cacheKey}`;
+      const cacheKey = `categoryRevenue:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
       const sales = await this.saleRepo.find({
-        where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
+        where: {
+          createdAt: Between(dr.from, dr.to),
+          status: SaleStatus.COMPLETED,
+          ...(branchId ? { branchId } : {}),
+        },
         relations: ['lines'],
       });
 
@@ -168,15 +217,19 @@ export class AnalyticsService {
     }
   }
 
-  async getTopEmployees(range = '30d', from?: string, to?: string) {
+  async getTopEmployees(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `topEmployees:${dr.cacheKey}`;
+      const cacheKey = `topEmployees:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
       const sales = await this.saleRepo.find({
-        where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
+        where: {
+          createdAt: Between(dr.from, dr.to),
+          status: SaleStatus.COMPLETED,
+          ...(branchId ? { branchId } : {}),
+        },
         relations: ['employee'],
       });
 
@@ -212,27 +265,28 @@ export class AnalyticsService {
     }
   }
 
-  async getHourlyTraffic(date?: string) {
+  async getHourlyTraffic(date?: string, branchId?: string) {
     try {
-      const targetDate = date ?? new Date().toISOString().split('T')[0];
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = this.toLocalDateStr(new Date());
+      const targetDate = date ?? todayStr;
       const isToday = targetDate === todayStr;
-      const cacheKey = `hourlyTraffic:${targetDate}`;
+      const cacheKey = `hourlyTraffic:${targetDate}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
-      const sales = await this.saleRepo
-        .createQueryBuilder('s')
-        .where('DATE(s.createdAt) = :date AND s.status = :status', {
-          date: targetDate,
+      const { from, to } = this.localDayRange(targetDate);
+      const sales = await this.saleRepo.find({
+        where: {
+          createdAt: Between(from, to),
           status: SaleStatus.COMPLETED,
-        })
-        .getMany();
+          ...(branchId ? { branchId } : {}),
+        },
+      });
 
       const byHour = new Map<number, number>();
       for (let i = 0; i < 24; i++) byHour.set(i, 0);
       for (const s of sales) {
-        const hour = new Date(s.createdAt).getHours();
+        const hour = this.toLocalHour(s.createdAt instanceof Date ? s.createdAt : new Date(s.createdAt));
         byHour.set(hour, (byHour.get(hour) ?? 0) + 1);
       }
 
@@ -251,10 +305,10 @@ export class AnalyticsService {
     }
   }
 
-  async getKpis(range = '30d', from?: string, to?: string) {
+  async getKpis(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `kpis:${dr.cacheKey}`;
+      const cacheKey = `kpis:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
@@ -264,10 +318,18 @@ export class AnalyticsService {
 
       const [currentSales, previousSales] = await Promise.all([
         this.saleRepo.find({
-          where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
+          where: {
+            createdAt: Between(dr.from, dr.to),
+            status: SaleStatus.COMPLETED,
+            ...(branchId ? { branchId } : {}),
+          },
         }),
         this.saleRepo.find({
-          where: { createdAt: Between(prevFrom, dr.from), status: SaleStatus.COMPLETED },
+          where: {
+            createdAt: Between(prevFrom, dr.from),
+            status: SaleStatus.COMPLETED,
+            ...(branchId ? { branchId } : {}),
+          },
         }),
       ]);
 
@@ -280,10 +342,11 @@ export class AnalyticsService {
       if (currentSaleIds.length > 0) {
         const lines = await this.lineRepo
           .createQueryBuilder('l')
+          .leftJoinAndSelect('l.item', 'item')
           .where('l.saleId IN (:...ids)', { ids: currentSaleIds })
           .getMany();
         for (const l of lines) {
-          totalCost += Number(l.basePrice) * l.qty;
+          totalCost += Number((l as any).item?.cost ?? 0) * l.qty;
         }
       }
 

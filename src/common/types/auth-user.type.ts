@@ -5,6 +5,7 @@ export interface AuthUser {
   name: string;
   role: Role;
   permissions: Record<string, boolean>;
+  branchId: string | null;
 }
 
 export interface JwtPayload {

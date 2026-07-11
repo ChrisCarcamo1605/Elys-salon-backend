@@ -38,6 +38,9 @@ const PERMISSIONS: PermDef[] = [
   // Catálogo
   { perm: 'products.write',            admin: true, empleado: false },
   { perm: 'categories.write',          admin: true, empleado: false },
+  // Sucursales
+  { perm: 'branches.read',             admin: true, empleado: false },
+  { perm: 'branches.write',            admin: true, empleado: false },
 ];
 
 

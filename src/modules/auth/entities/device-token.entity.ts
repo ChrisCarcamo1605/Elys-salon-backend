@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from '../../staff/entities/user.entity';
+import { DeviceTokenScope } from '../../../common/enums';
 
 @Entity('device_tokens')
 @Index('idx_device_tokens_user_expires', ['userId', 'expiresAt'])
@@ -20,6 +21,13 @@ export class DeviceToken {
 
   @Column({ name: 'user_id' })
   userId: string;
+
+  @Column({
+    type: 'enum',
+    enum: DeviceTokenScope,
+    default: DeviceTokenScope.EMPLEADO,
+  })
+  scope: DeviceTokenScope;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
