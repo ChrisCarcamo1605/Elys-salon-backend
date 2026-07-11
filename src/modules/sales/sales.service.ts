@@ -11,6 +11,7 @@ import { Sale } from './entities/sale.entity';
 import { SaleLine } from './entities/sale-line.entity';
 import { SalePayment } from './entities/sale-payment.entity';
 import { CatalogItem } from '../catalog/entities/catalog-item.entity';
+import { User } from '../staff/entities/user.entity';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { ListSalesDto } from './dto/list-sales.dto';
 import { SaleStatus, ItemType, DiscountKind } from '../../common/enums';
@@ -31,7 +32,12 @@ export class SalesService {
 
   async create(
     dto: CreateSaleDto,
-    user: { id: string; role: string; permissions: Record<string, boolean> },
+    user: {
+      id: string;
+      role: string;
+      permissions: Record<string, boolean>;
+      branchId?: string | null;
+    },
   ): Promise<Sale> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -44,6 +50,14 @@ export class SalesService {
         paymentsCount: dto.payments.length,
         userId: user.id,
       });
+
+      // La venta hereda la sucursal de quien la hizo; si esa cuenta no tiene
+      // sucursal asignada (p.ej. admin global), usa la de quien opera el dispositivo.
+      const employeeForBranch = await queryRunner.manager.findOne(User, {
+        where: { id: dto.employeeId },
+      });
+      const branchId =
+        employeeForBranch?.branchId ?? user.branchId ?? null;
 
       let subtotal = 0;
       let discountTotal = 0;
@@ -152,6 +166,7 @@ export class SalesService {
 
       const sale = queryRunner.manager.create(Sale, {
         employeeId: dto.employeeId,
+        branchId,
         customerName: dto.customerName,
         customerPhone: dto.customerPhone,
         customerIsNew: dto.customerIsNew ?? false,
@@ -227,6 +242,7 @@ export class SalesService {
       const qb = this.saleRepo
         .createQueryBuilder('s')
         .leftJoinAndSelect('s.employee', 'employee')
+        .leftJoinAndSelect('s.branch', 'branch')
         .leftJoinAndSelect('s.lines', 'lines')
         .leftJoinAndSelect('s.payments', 'payments')
         .orderBy('s.createdAt', 'DESC')
@@ -235,6 +251,8 @@ export class SalesService {
 
       if (query.employeeId)
         qb.andWhere('s.employeeId = :eid', { eid: query.employeeId });
+      if (query.branchId)
+        qb.andWhere('s.branchId = :bid', { bid: query.branchId });
       if (query.from) qb.andWhere('s.createdAt >= :from', { from: query.from });
       if (query.to) qb.andWhere('s.createdAt <= :to', { to: query.to });
       if (query.status)
@@ -264,6 +282,7 @@ export class SalesService {
         where: { id },
         relations: [
           'employee',
+          'branch',
           'lines',
           'lines.item',
           'lines.discountBy',

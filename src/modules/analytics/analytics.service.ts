@@ -111,15 +111,19 @@ export class AnalyticsService {
     };
   }
 
-  async getSalesByDay(range = '30d', from?: string, to?: string) {
+  async getSalesByDay(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `salesByDay:${dr.cacheKey}`;
+      const cacheKey = `salesByDay:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
       const sales = await this.saleRepo.find({
-        where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
+        where: {
+          createdAt: Between(dr.from, dr.to),
+          status: SaleStatus.COMPLETED,
+          ...(branchId ? { branchId } : {}),
+        },
         relations: ['lines', 'lines.item'],
         order: { createdAt: 'ASC' },
       });
@@ -159,15 +163,19 @@ export class AnalyticsService {
     }
   }
 
-  async getCategoryRevenue(range = '30d', from?: string, to?: string) {
+  async getCategoryRevenue(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `categoryRevenue:${dr.cacheKey}`;
+      const cacheKey = `categoryRevenue:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
       const sales = await this.saleRepo.find({
-        where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
+        where: {
+          createdAt: Between(dr.from, dr.to),
+          status: SaleStatus.COMPLETED,
+          ...(branchId ? { branchId } : {}),
+        },
         relations: ['lines'],
       });
 
@@ -209,15 +217,19 @@ export class AnalyticsService {
     }
   }
 
-  async getTopEmployees(range = '30d', from?: string, to?: string) {
+  async getTopEmployees(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `topEmployees:${dr.cacheKey}`;
+      const cacheKey = `topEmployees:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
       const sales = await this.saleRepo.find({
-        where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
+        where: {
+          createdAt: Between(dr.from, dr.to),
+          status: SaleStatus.COMPLETED,
+          ...(branchId ? { branchId } : {}),
+        },
         relations: ['employee'],
       });
 
@@ -253,18 +265,22 @@ export class AnalyticsService {
     }
   }
 
-  async getHourlyTraffic(date?: string) {
+  async getHourlyTraffic(date?: string, branchId?: string) {
     try {
       const todayStr = this.toLocalDateStr(new Date());
       const targetDate = date ?? todayStr;
       const isToday = targetDate === todayStr;
-      const cacheKey = `hourlyTraffic:${targetDate}`;
+      const cacheKey = `hourlyTraffic:${targetDate}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
       const { from, to } = this.localDayRange(targetDate);
       const sales = await this.saleRepo.find({
-        where: { createdAt: Between(from, to), status: SaleStatus.COMPLETED },
+        where: {
+          createdAt: Between(from, to),
+          status: SaleStatus.COMPLETED,
+          ...(branchId ? { branchId } : {}),
+        },
       });
 
       const byHour = new Map<number, number>();
@@ -289,10 +305,10 @@ export class AnalyticsService {
     }
   }
 
-  async getKpis(range = '30d', from?: string, to?: string) {
+  async getKpis(range = '30d', from?: string, to?: string, branchId?: string) {
     try {
       const dr = this.parseDateRange(range, from, to);
-      const cacheKey = `kpis:${dr.cacheKey}`;
+      const cacheKey = `kpis:${dr.cacheKey}:${branchId ?? 'all'}`;
       const cached = this.getCached<any>(cacheKey);
       if (cached) return cached;
 
@@ -302,10 +318,18 @@ export class AnalyticsService {
 
       const [currentSales, previousSales] = await Promise.all([
         this.saleRepo.find({
-          where: { createdAt: Between(dr.from, dr.to), status: SaleStatus.COMPLETED },
+          where: {
+            createdAt: Between(dr.from, dr.to),
+            status: SaleStatus.COMPLETED,
+            ...(branchId ? { branchId } : {}),
+          },
         }),
         this.saleRepo.find({
-          where: { createdAt: Between(prevFrom, dr.from), status: SaleStatus.COMPLETED },
+          where: {
+            createdAt: Between(prevFrom, dr.from),
+            status: SaleStatus.COMPLETED,
+            ...(branchId ? { branchId } : {}),
+          },
         }),
       ]);
 

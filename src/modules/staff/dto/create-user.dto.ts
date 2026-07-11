@@ -78,4 +78,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsNumber()
   avatarHue?: number;
+
+  @IsOptional()
+  @IsString()
+  branchId?: string;
 }

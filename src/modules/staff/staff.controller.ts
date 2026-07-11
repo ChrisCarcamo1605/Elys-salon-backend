@@ -21,6 +21,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePermissionsDto } from './dto/update-permissions.dto';
 import { ListUsersDto } from './dto/list-users.dto';
 import { ChangePinDto } from './dto/change-pin.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { Role } from '../../common/enums';
 
 @Controller('staff')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -35,7 +37,15 @@ export class StaffController {
 
   @Get()
   @RequirePermission('users.read')
-  findAll(@Query() query: ListUsersDto) {
+  findAll(@Query() query: ListUsersDto, @CurrentUser() user: AuthUser) {
+    // No-admin: forzado a su propia sucursal y nunca ve cuentas admin.
+    if (user.role !== Role.ADMIN) {
+      return this.service.findAll({
+        ...query,
+        branchId: user.branchId ?? undefined,
+        role: query.role === Role.ADMIN ? undefined : (query.role ?? Role.EMPLEADO),
+      });
+    }
     return this.service.findAll(query);
   }
 
@@ -61,6 +71,13 @@ export class StaffController {
   @RequirePermission('users.write')
   changePin(@Param('id') id: string, @Body() dto: ChangePinDto) {
     return this.service.updatePin(id, dto.pin);
+  }
+
+  /** Asigna/actualiza la contraseña de login por correo (p.ej. la cuenta de una sucursal). */
+  @Patch(':id/password')
+  @RequirePermission('users.write')
+  changePassword(@Param('id') id: string, @Body() dto: ChangePasswordDto) {
+    return this.service.updatePassword(id, dto.password);
   }
 
   @Delete(':id')

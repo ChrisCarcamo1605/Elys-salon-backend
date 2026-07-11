@@ -8,6 +8,10 @@ export class ListSalesDto {
   employeeId?: string;
 
   @IsOptional()
+  @IsString()
+  branchId?: string;
+
+  @IsOptional()
   @IsDateString()
   from?: string;
 

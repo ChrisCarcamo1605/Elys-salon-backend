@@ -10,11 +10,13 @@ import {
 } from 'typeorm';
 import { SaleStatus } from '../../../common/enums';
 import { User } from '../../staff/entities/user.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 import { SaleLine } from './sale-line.entity';
 import { SalePayment } from './sale-payment.entity';
 
 @Entity('sales')
 @Index('idx_sales_employee_date_status', ['employeeId', 'createdAt', 'status'])
+@Index('idx_sales_branch_date_status', ['branchId', 'createdAt', 'status'])
 export class Sale {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -28,6 +30,13 @@ export class Sale {
 
   @Column({ name: 'employee_id' })
   employeeId: string;
+
+  @ManyToOne(() => Branch, { nullable: true })
+  @JoinColumn({ name: 'branch_id' })
+  branch: Branch | null;
+
+  @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+  branchId: string | null;
 
   @OneToMany(() => SaleLine, (line) => line.sale)
   lines: SaleLine[];

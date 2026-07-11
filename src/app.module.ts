@@ -13,6 +13,7 @@ import { databaseConfigFactory } from './config/database.config';
 import { envValidationSchema } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
 import { StaffModule } from './modules/staff/staff.module';
+import { BranchesModule } from './modules/branches/branches.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
@@ -57,6 +58,7 @@ import { UploadModule } from './modules/upload/upload.module';
     ScheduleModule.forRoot(),
     AuthModule,
     StaffModule,
+    BranchesModule,
     PermissionsModule,
     CategoriesModule,
     CatalogModule,

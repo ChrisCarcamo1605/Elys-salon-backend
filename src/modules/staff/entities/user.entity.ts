@@ -3,10 +3,13 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Role, UserStatus, PayType } from '../../../common/enums';
+import { Branch } from '../../branches/entities/branch.entity';
 
 @Entity('users')
 export class User {
@@ -77,6 +80,13 @@ export class User {
 
   @Column({ type: 'jsonb', default: '{}' })
   permissions: Record<string, boolean>;
+
+  @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+  branchId: string | null;
+
+  @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'branch_id' })
+  branch: Branch | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
