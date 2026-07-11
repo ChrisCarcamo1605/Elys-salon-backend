@@ -168,6 +168,12 @@ export class StaffService {
       Object.assign(user, dto);
       if (dto.hireDate) user.hireDate = new Date(dto.hireDate);
       if (dto.birthday) user.birthday = new Date(dto.birthday);
+      // `findOne` precarga la relación `branch`; si se cambia el branchId hay que
+      // limpiar esa relación desactualizada, o TypeORM la usa para resolver la
+      // FK al guardar y el branchId nuevo nunca se persiste.
+      if ('branchId' in dto) {
+        user.branch = null;
+      }
       const saved = await this.userRepo.save(user);
       this.logger.infoWithContext('User updated successfully', { id });
       return saved;
