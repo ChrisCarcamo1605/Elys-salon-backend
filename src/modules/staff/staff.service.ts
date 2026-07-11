@@ -25,6 +25,12 @@ export class StaffService {
     private config: ConfigService<AppConfig>,
   ) {}
 
+  /** Nunca exponer hashes al cliente; expone `hasPassword` para saber si ya tiene login por correo. */
+  sanitize(user: User) {
+    const { pinHash, passwordHash, ...safe } = user;
+    return { ...safe, hasPassword: !!passwordHash };
+  }
+
   private getArgon2Options() {
     return {
       type: argon2.argon2id,
@@ -111,7 +117,12 @@ export class StaffService {
         page,
         pageSize,
       });
-      return { items, total, page, pageSize };
+      return {
+        items: items.map((u) => this.sanitize(u)),
+        total,
+        page,
+        pageSize,
+      };
     } catch (error) {
       this.logger.errorWithContext({
         message: 'Failed to retrieve users',

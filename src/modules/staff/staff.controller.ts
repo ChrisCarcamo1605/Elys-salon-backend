@@ -51,20 +51,20 @@ export class StaffController {
 
   @Post()
   @RequirePermission('users.write')
-  create(@Body() dto: CreateUserDto) {
-    return this.service.create(dto);
+  async create(@Body() dto: CreateUserDto) {
+    return this.service.sanitize(await this.service.create(dto));
   }
 
   @Get(':id')
   @RequirePermission('users.read')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  async findOne(@Param('id') id: string) {
+    return this.service.sanitize(await this.service.findOne(id));
   }
 
   @Patch(':id')
   @RequirePermission('users.write')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.service.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.service.sanitize(await this.service.update(id, dto));
   }
 
   @Patch(':id/pin')
@@ -88,10 +88,10 @@ export class StaffController {
 
   @Patch(':id/permissions')
   @RequirePermission('users.permissions.manage')
-  updatePermissions(
+  async updatePermissions(
     @Param('id') id: string,
     @Body() dto: UpdatePermissionsDto,
   ) {
-    return this.service.updatePermissions(id, dto);
+    return this.service.sanitize(await this.service.updatePermissions(id, dto));
   }
 }
