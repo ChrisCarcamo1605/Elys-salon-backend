@@ -168,11 +168,12 @@ export class StaffService {
       Object.assign(user, dto);
       if (dto.hireDate) user.hireDate = new Date(dto.hireDate);
       if (dto.birthday) user.birthday = new Date(dto.birthday);
-      // `findOne` precarga la relación `branch`; si se cambia el branchId hay que
-      // limpiar esa relación desactualizada, o TypeORM la usa para resolver la
-      // FK al guardar y el branchId nuevo nunca se persiste.
+      // `findOne` precarga la relación `branch`. Si queda presente (aunque sea
+      // null), TypeORM la usa para resolver branch_id al guardar e ignora el
+      // branchId escalar recién asignado. Hay que eliminarla (no ponerla en
+      // null, eso fuerza branch_id=NULL) para que gane el valor de `dto`.
       if ('branchId' in dto) {
-        user.branch = null;
+        delete (user as { branch?: unknown }).branch;
       }
       const saved = await this.userRepo.save(user);
       this.logger.infoWithContext('User updated successfully', { id });
