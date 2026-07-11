@@ -8,6 +8,11 @@ import { CatalogItem } from '../catalog/entities/catalog-item.entity';
 import { SaleStatus } from '../../common/enums';
 import { AppLogger } from '../../common/utils/logger';
 import { AppConfig } from '../../config/configuration';
+import {
+  toLocalDateStr as sharedToLocalDateStr,
+  localDayRange as sharedLocalDayRange,
+  parseDateRange as sharedParseDateRange,
+} from '../../common/utils/timezone';
 
 interface CacheEntry<T> {
   data: T;
@@ -34,7 +39,7 @@ export class AnalyticsService {
 
   /** Calendar day (YYYY-MM-DD) of `date` in the salon's local timezone, not UTC. */
   private toLocalDateStr(date: Date): string {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: this.getTimezone() }).format(date);
+    return sharedToLocalDateStr(date, this.getTimezone());
   }
 
   /** Hour-of-day (0-23) of `date` in the salon's local timezone, not UTC/server-local. */
@@ -49,19 +54,9 @@ export class AnalyticsService {
     );
   }
 
-  private tzOffsetMs(timeZone: string, date: Date): number {
-    const utc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
-    const tz = new Date(date.toLocaleString('en-US', { timeZone }));
-    return utc.getTime() - tz.getTime();
-  }
-
   /** UTC instant bounds of a YYYY-MM-DD calendar day as lived in the salon's local timezone. */
   private localDayRange(dateStr: string): { from: Date; to: Date } {
-    const naiveStart = new Date(`${dateStr}T00:00:00Z`);
-    const offset = this.tzOffsetMs(this.getTimezone(), naiveStart);
-    const from = new Date(naiveStart.getTime() + offset);
-    const to = new Date(from.getTime() + 24 * 60 * 60 * 1000 - 1);
-    return { from, to };
+    return sharedLocalDayRange(dateStr, this.getTimezone());
   }
 
   private getCached<T>(key: string): T | null {
@@ -80,35 +75,7 @@ export class AnalyticsService {
   }
 
   private parseDateRange(range?: string, from?: string, to?: string) {
-    const todayStr = this.toLocalDateStr(new Date());
-
-    if (from && to) {
-      return {
-        from: this.localDayRange(from).from,
-        to: this.localDayRange(to).to,
-        cacheKey: `${from}:${to}`,
-        includesToday: to >= todayStr,
-      };
-    }
-
-    const r = range ?? '30d';
-    if (r === 'today') {
-      const today = this.localDayRange(todayStr);
-      return {
-        from: today.from,
-        to: today.to,
-        cacheKey: 'today',
-        includesToday: true,
-      };
-    }
-
-    const days = parseInt(r) || 30;
-    return {
-      from: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-      to: new Date(),
-      cacheKey: r,
-      includesToday: true,
-    };
+    return sharedParseDateRange(range, from, to, this.getTimezone());
   }
 
   async getSalesByDay(range = '30d', from?: string, to?: string, branchId?: string) {

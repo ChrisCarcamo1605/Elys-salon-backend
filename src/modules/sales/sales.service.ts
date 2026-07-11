@@ -16,6 +16,7 @@ import { CreateSaleDto } from './dto/create-sale.dto';
 import { ListSalesDto } from './dto/list-sales.dto';
 import { SaleStatus, ItemType, DiscountKind } from '../../common/enums';
 import { AppLogger } from '../../common/utils/logger';
+import { parseDateRange } from '../../common/utils/timezone';
 
 @Injectable()
 export class SalesService {
@@ -235,6 +236,30 @@ export class SalesService {
     }
   }
 
+  /** `employee`/`voidedBy`/`lines[].discountBy` son entidades User completas
+   * vía relation; nunca deben salir con pinHash/passwordHash al cliente. */
+  private stripUserSecrets<T extends Record<string, any> | null | undefined>(
+    user: T,
+  ): T {
+    if (!user) return user;
+    const { pinHash, passwordHash, ...safe } = user;
+    return safe as T;
+  }
+
+  private sanitizeSale(sale: Sale): Sale {
+    const s = { ...sale } as any;
+    if (s.employee) s.employee = this.stripUserSecrets(s.employee);
+    if (s.voidedBy) s.voidedBy = this.stripUserSecrets(s.voidedBy);
+    if (Array.isArray(s.lines)) {
+      s.lines = s.lines.map((l: any) =>
+        l.discountBy
+          ? { ...l, discountBy: this.stripUserSecrets(l.discountBy) }
+          : l,
+      );
+    }
+    return s;
+  }
+
   async findAll(query: ListSalesDto) {
     try {
       const page = query.page ?? 1;
@@ -253,8 +278,16 @@ export class SalesService {
         qb.andWhere('s.employeeId = :eid', { eid: query.employeeId });
       if (query.branchId)
         qb.andWhere('s.branchId = :bid', { bid: query.branchId });
-      if (query.from) qb.andWhere('s.createdAt >= :from', { from: query.from });
-      if (query.to) qb.andWhere('s.createdAt <= :to', { to: query.to });
+      if (query.range) {
+        // Resuelve el mismo día-calendario local que usa analytics, para que
+        // "Hoy"/"7 días"/etc. coincidan entre Historial de ventas y Analytics.
+        const dr = parseDateRange(query.range, query.from, query.to);
+        qb.andWhere('s.createdAt >= :from', { from: dr.from });
+        qb.andWhere('s.createdAt <= :to', { to: dr.to });
+      } else {
+        if (query.from) qb.andWhere('s.createdAt >= :from', { from: query.from });
+        if (query.to) qb.andWhere('s.createdAt <= :to', { to: query.to });
+      }
       if (query.status)
         qb.andWhere('s.status = :status', { status: query.status });
 
@@ -265,7 +298,12 @@ export class SalesService {
         page,
         pageSize,
       });
-      return { items, total, page, pageSize };
+      return {
+        items: items.map((s) => this.sanitizeSale(s)),
+        total,
+        page,
+        pageSize,
+      };
     } catch (error) {
       this.logger.errorWithContext({
         message: 'Failed to retrieve sales',
@@ -297,7 +335,7 @@ export class SalesService {
         });
         throw new NotFoundException('Venta no encontrada');
       }
-      return sale;
+      return this.sanitizeSale(sale);
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       this.logger.errorWithContext({

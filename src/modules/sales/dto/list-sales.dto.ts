@@ -11,6 +11,13 @@ export class ListSalesDto {
   @IsString()
   branchId?: string;
 
+  /** Atajo de rango ('today' | '7d' | '30d' | '90d' | '365d'); si viene, tiene
+   * prioridad sobre `from`/`to` y se resuelve con el mismo cálculo de día
+   * calendario local que usa analytics (evita que "Hoy" difiera entre pantallas). */
+  @IsOptional()
+  @IsString()
+  range?: string;
+
   @IsOptional()
   @IsDateString()
   from?: string;
