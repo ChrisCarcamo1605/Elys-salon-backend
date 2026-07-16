@@ -156,20 +156,36 @@ export class TimeclockService {
   async getToday(userId: string, role: string) {
     try {
       const today = this.toLocalDateStr(new Date());
-      const where: any = { date: today };
-      if (role !== 'admin') where.userId = userId;
+      const scope: any = {};
+      if (role !== 'admin') scope.userId = userId;
 
-      const result = await this.entryRepo.find({
-        where,
+      // Entradas de hoy + cualquier jornada aún abierta (aunque haya iniciado
+      // un día anterior). Así el front siempre refleja un turno abierto y el
+      // empleado puede cerrarlo cuando quiera, sin quedar bloqueado por un
+      // punch-in que devuelve 409 por una entrada abierta invisible.
+      const todayEntries = await this.entryRepo.find({
+        where: { ...scope, date: today },
         relations: ['user'],
         order: { inAt: 'ASC' },
       });
+      const openEntries = await this.entryRepo.find({
+        where: { ...scope, outAt: IsNull() },
+        relations: ['user'],
+        order: { date: 'ASC', inAt: 'ASC' },
+      });
+
+      const byId = new Map<string, TimeEntry>();
+      for (const e of [...todayEntries, ...openEntries]) byId.set(e.id, e);
+      const result = Array.from(byId.values()).sort((a, b) =>
+        `${a.date} ${a.inAt}`.localeCompare(`${b.date} ${b.inAt}`),
+      );
 
       this.logger.infoWithContext('Today entries retrieved', {
         count: result.length,
         userId,
         role,
         today,
+        openCount: openEntries.length,
       });
 
       return result;
