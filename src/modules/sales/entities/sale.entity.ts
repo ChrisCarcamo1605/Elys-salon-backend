@@ -84,6 +84,6 @@ export class Sale {
   @Column({ name: 'voided_by_id', type: 'uuid', nullable: true })
   voidedById: string | null;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }
