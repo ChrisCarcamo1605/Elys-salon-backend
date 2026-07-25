@@ -17,6 +17,7 @@ import { ListSalesDto } from './dto/list-sales.dto';
 import { SaleStatus, ItemType, DiscountKind } from '../../common/enums';
 import { AppLogger } from '../../common/utils/logger';
 import { parseDateRange } from '../../common/utils/timezone';
+import { hasPermission } from '../../common/utils/cost-visibility';
 
 @Injectable()
 export class SalesService {
@@ -94,8 +95,10 @@ export class SalesService {
               }
               // Promo discount — no permission needed
             } else {
-              const overridden = user.permissions?.['tickets.discount'];
-              if (!overridden) {
+              // `user.permissions` viene ya resuelto (matriz de rol + override
+              // por usuario) desde AuthService.validateUser, así que conceder
+              // 'tickets.discount' a todo el rol también surte efecto aquí.
+              if (!hasPermission(user, 'tickets.discount')) {
                 this.logger.warnWithContext('Unauthorized discount attempt', {
                   userId: user.id,
                   userRole: user.role,

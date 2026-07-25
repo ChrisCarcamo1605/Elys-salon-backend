@@ -18,7 +18,7 @@ const PERMISSIONS: PermDef[] = [
   { perm: 'analytics.read',            admin: true, empleado: false },
   // Inventario
   { perm: 'inventory.read',            admin: true, empleado: true  },
-  { perm: 'inventory.create',          admin: true, empleado: false },
+  { perm: 'inventory.create',          admin: true, empleado: true  },
   { perm: 'inventory.adjust',          admin: true, empleado: false },
   // Plantilla
   { perm: 'users.read',                admin: true, empleado: false },
@@ -37,6 +37,8 @@ const PERMISSIONS: PermDef[] = [
   { perm: 'offers.write',              admin: true, empleado: false },
   // Catálogo
   { perm: 'products.write',            admin: true, empleado: false },
+  // Costo de compra y márgenes — la empleada solo ve el precio de venta
+  { perm: 'products.cost.read',        admin: true, empleado: false },
   { perm: 'categories.write',          admin: true, empleado: false },
   // Sucursales
   { perm: 'branches.read',             admin: true, empleado: false },

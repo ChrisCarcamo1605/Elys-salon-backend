@@ -53,7 +53,9 @@ export class PermissionsGuard implements CanActivate {
     const perm = required[0];
     const overridden = user.permissions?.[perm];
     if (overridden === true) return true;
-    if (overridden === false) return false;
+    if (overridden === false) {
+      throw new ForbiddenException(`Permiso insuficiente: ${perm}`);
+    }
 
     const permissionsService = await this.getPermissionsService();
     if (permissionsService) {

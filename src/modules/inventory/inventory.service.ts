@@ -21,9 +21,15 @@ export class InventoryService {
     private eventEmitter: EventEmitter2,
   ) {}
 
+  /**
+   * @param canSetCost quien no puede ver el costo tampoco lo fija: la entrada
+   *   se valoriza con el costo que ya tiene el producto y se ignora lo que
+   *   venga en el body (que ni siquiera se le muestra en el formulario).
+   */
   async createEntry(
     dto: CreateEntryDto,
     userId: string,
+    canSetCost = true,
   ): Promise<InventoryEntry> {
     try {
       this.logger.infoWithContext('Creating inventory entry', {
@@ -48,8 +54,18 @@ export class InventoryService {
       product.stock = stockAfter;
       await this.catalogRepo.save(product);
 
+      const unitCost = canSetCost
+        ? (dto.unitCost ?? Number(product.cost ?? 0))
+        : Number(product.cost ?? 0);
+      const totalCost =
+        canSetCost && dto.totalCost != null
+          ? dto.totalCost
+          : +(unitCost * dto.qtyDelta).toFixed(2);
+
       const entry = this.entryRepo.create({
         ...dto,
+        unitCost,
+        totalCost,
         stockAfter,
         createdById: userId,
       });
@@ -160,7 +176,11 @@ export class InventoryService {
       const qb = this.entryRepo
         .createQueryBuilder('e')
         .leftJoinAndSelect('e.product', 'product')
-        .leftJoinAndSelect('e.createdBy', 'createdBy')
+        // Solo los campos de identificación: un leftJoinAndSelect completo
+        // arrastraba pinHash / passwordHash / devPin de quien registró la
+        // entrada, y este listado lo lee cualquiera con 'inventory.read'.
+        .leftJoin('e.createdBy', 'createdBy')
+        .addSelect(['createdBy.id', 'createdBy.name', 'createdBy.initials'])
         .orderBy('e.createdAt', 'DESC')
         .skip((page - 1) * pageSize)
         .take(pageSize);

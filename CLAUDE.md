@@ -51,7 +51,7 @@ Each feature lives in `src/modules/<name>/` with the standard NestJS layout (con
 | `sales` | Sale creation (with `DataSource` transaction), void, list |
 | `inventory` | Purchase entries and manual adjustments |
 | `timeclock` | Employee punch in/out, manual corrections |
-| `goals` | Performance goals with reset periods (monthly, biweekly, none) |
+| `goals` | Performance goals with reset periods (daily, monthly, biweekly, none). The reset is a read-time window — `getPeriodStart` moves the query's start date on local (America/El_Salvador) calendar boundaries; nothing is stored or cleared, so there is no cron |
 | `promotions` | Promotions with join table to catalog items |
 | `alerts` | Low-stock, slow-mover, discount-review, promo alerts with cron jobs |
 | `payroll` | Payroll computation |
@@ -71,9 +71,11 @@ Each feature lives in `src/modules/<name>/` with the standard NestJS layout (con
 - **Logging**: Use `AppLogger` from `src/common/utils/logger.ts` in services; NestJS `Logger` in guards/interceptors.
 
 ### Permissions model
-- `permissions_matrix` table: one row per role (`admin`/`empleado`) with a JSONB `permissions` map.
+- `permissions_matrix` table: one row per permission with an `admin` and an `empleado` boolean.
 - `users.permissions` JSONB: per-user overrides (`true`/`false`/absent). Absent means fall back to role default.
 - Admin role bypasses all permission checks.
+- **`req.user.permissions` is already resolved** (matrix default for the role, overridden by the user's JSONB) — `AuthService.effectivePermissions` builds it in `validateUser`, and login/unlock return the same merged map to the client. Read the key directly; do not re-consult the matrix. `GET /staff` still returns the raw override map, which is what the admin UI edits.
+- `products.cost.read` gates the purchase cost. Read endpoints return raw TypeORM entities (no output DTO, no `ClassSerializerInterceptor`), so `stripCost()` from `src/common/utils/cost-visibility.ts` filters `cost`/`unitCost`/`totalCost` out of the response in `CatalogController` and `InventoryController`. Any new endpoint that returns a `CatalogItem` or an `InventoryEntry` must do the same.
 
 ### Data conventions
 - IDs: UUID v4

@@ -94,6 +94,7 @@ export enum AlertStatus {
 }
 
 export enum ResetPeriod {
+  DAILY = 'daily',
   MONTHLY = 'monthly',
   BIWEEKLY = 'biweekly',
   NONE = 'none',

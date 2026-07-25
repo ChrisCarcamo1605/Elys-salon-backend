@@ -1,13 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Goal } from './entities/goal.entity';
 import { Sale } from '../sales/entities/sale.entity';
 import { SaleLine } from '../sales/entities/sale-line.entity';
 import { TimeEntry } from '../timeclock/entities/time-entry.entity';
-import { SaleStatus, BonusMetric, ResetPeriod } from '../../common/enums';
+import {
+  SaleStatus,
+  ItemType,
+  RewardType,
+  ResetPeriod,
+} from '../../common/enums';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
+import { localDayRange, toLocalDateStr } from '../../common/utils/timezone';
 
 @Injectable()
 export class GoalsService {
@@ -42,53 +48,74 @@ export class GoalsService {
     await this.repo.update(id, { active: false });
   }
 
+  /**
+   * Instante UTC en el que arranca el período vigente de una meta.
+   *
+   * Los cortes se calculan sobre el día calendario del salón
+   * (America/El_Salvador, UTC-6), no sobre la hora del proceso: una venta de
+   * las 7pm del día 31 cae en UTC del día siguiente, y con `new Date(y,m,d)`
+   * el corte se desplazaba 6 horas. `localDayRange` ya resuelve eso y es el
+   * mismo helper que usan ventas y analíticas.
+   */
   private getPeriodStart(now: Date, resetPeriod: ResetPeriod): Date {
-    if (resetPeriod === ResetPeriod.BIWEEKLY) {
-      return now.getDate() <= 15
-        ? new Date(now.getFullYear(), now.getMonth(), 1)
-        : new Date(now.getFullYear(), now.getMonth(), 16);
-    }
     if (resetPeriod === ResetPeriod.NONE) {
       return new Date(0);
     }
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const today = toLocalDateStr(now); // YYYY-MM-DD local
+    if (resetPeriod === ResetPeriod.DAILY) {
+      return localDayRange(today).from;
+    }
+
+    const [year, month, day] = today.split('-').map(Number);
+    const startDay =
+      resetPeriod === ResetPeriod.BIWEEKLY && day > 15 ? 16 : 1;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return localDayRange(`${year}-${pad(month)}-${pad(startDay)}`).from;
   }
 
+  /**
+   * Agrega en SQL en vez de traer las ventas a memoria: con
+   * `resetPeriod = 'none'` el método anterior cargaba el historial completo de
+   * la empleada (y un `IN (...)` sin límite con todos los ids) en cada refresco
+   * de la pantalla de progreso, que se repite cada 30 s.
+   */
   private async computeStats(userId: string, from: Date, to: Date) {
-    const sales = await this.saleRepo.find({
-      where: {
-        employeeId: userId,
-        createdAt: Between(from, to),
-        status: SaleStatus.COMPLETED,
-      },
-    });
+    const params = { userId, from, to, status: SaleStatus.COMPLETED };
 
-    let totalSales = 0;
-    let tipsCollected = 0;
-    let newClients = 0;
-    let servicesDone = 0;
-    let retailSales = 0;
+    const saleAgg = await this.saleRepo
+      .createQueryBuilder('s')
+      .select('COALESCE(SUM(s.total), 0)', 'totalSales')
+      .addSelect('COALESCE(SUM(s.tip), 0)', 'tipsCollected')
+      .addSelect('COUNT(*) FILTER (WHERE s.customerIsNew)', 'newClients')
+      .where('s.employeeId = :userId', params)
+      .andWhere('s.status = :status', params)
+      .andWhere('s.createdAt BETWEEN :from AND :to', params)
+      .getRawOne<Record<string, string>>();
 
-    for (const s of sales) {
-      totalSales += Number(s.total);
-      tipsCollected += Number(s.tip);
-      if (s.customerIsNew) newClients++;
-    }
+    const lineAgg = await this.lineRepo
+      .createQueryBuilder('l')
+      .innerJoin('l.sale', 's')
+      .select(
+        `COALESCE(SUM(l.qty) FILTER (WHERE l.itemType = '${ItemType.SERVICE}'), 0)`,
+        'servicesDone',
+      )
+      .addSelect(
+        `COALESCE(SUM(l.price * l.qty) FILTER (WHERE l.itemType = '${ItemType.PRODUCT}'), 0)`,
+        'retailSales',
+      )
+      .where('s.employeeId = :userId', params)
+      .andWhere('s.status = :status', params)
+      .andWhere('s.createdAt BETWEEN :from AND :to', params)
+      .getRawOne<Record<string, string>>();
 
-    const saleIds = sales.map((s) => s.id);
-    if (saleIds.length > 0) {
-      const lines = await this.lineRepo
-        .createQueryBuilder('l')
-        .where('l.saleId IN (:...ids)', { ids: saleIds })
-        .getMany();
-
-      for (const l of lines) {
-        if (l.itemType === 'S') servicesDone += l.qty;
-        if (l.itemType === 'P') retailSales += Number(l.price) * l.qty;
-      }
-    }
-
-    return { totalSales, retailSales, servicesDone, newClients, tipsCollected };
+    return {
+      totalSales: Number(saleAgg?.totalSales ?? 0),
+      retailSales: Number(lineAgg?.retailSales ?? 0),
+      servicesDone: Number(lineAgg?.servicesDone ?? 0),
+      newClients: Number(saleAgg?.newClients ?? 0),
+      tipsCollected: Number(saleAgg?.tipsCollected ?? 0),
+    };
   }
 
   async getProgress(userId: string) {
@@ -105,25 +132,37 @@ export class GoalsService {
     }
 
     // Monthly stats for the summary header
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthStart = this.getPeriodStart(now, ResetPeriod.MONTHLY);
     const summaryStats = statsCache.get(ResetPeriod.MONTHLY)
       ?? await this.computeStats(userId, monthStart, now);
 
     const progress = goals.map((goal) => {
       const period = goal.resetPeriod ?? ResetPeriod.MONTHLY;
       const stats = statsCache.get(period)!;
-      const value = (stats as any)[goal.metric] ?? 0;
-      const pct =
-        goal.target > 0 ? Math.min((value / goal.target) * 100, 100) : 0;
-      const achieved = value >= goal.target;
-      let earned = 0;
-      if (achieved) {
-        earned =
-          goal.rewardType === ('fixed' as any)
-            ? goal.rewardValue
-            : value * (goal.rewardValue / 100);
-      }
-      return { goal, value, pct, achieved, earned };
+      const value = Number((stats as any)[goal.metric] ?? 0);
+      // `target` y `rewardValue` son numeric(10,2): el driver de pg los
+      // devuelve como string y sin este Number() `value >= target` compara
+      // texto y `earned` sale como "10.00", que el front luego concatena.
+      const target = Number(goal.target);
+      const rewardValue = Number(goal.rewardValue);
+
+      const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0;
+      const achieved = value >= target;
+      const earned = achieved
+        ? +(goal.rewardType === RewardType.FIXED
+            ? rewardValue
+            : value * (rewardValue / 100)
+          ).toFixed(2)
+        : 0;
+
+      return {
+        goal: { ...goal, target, rewardValue },
+        value,
+        pct,
+        achieved,
+        earned,
+        periodStart: this.getPeriodStart(now, period),
+      };
     });
 
     return { stats: summaryStats, goals: progress };

@@ -162,7 +162,8 @@ export class AlertsService {
           type: AlertType.DISCOUNT_REVIEW,
           resourceId: lineId,
           status: AlertStatus.ACTIVE,
-          notes: `Descuento ${discountKind}: ${discountValue} en venta ${saleId}`,
+          // Un valor negativo es un recargo (subieron el precio), no un descuento.
+          notes: `${discountValue < 0 ? 'Recargo' : 'Descuento'} ${discountKind}: ${Math.abs(discountValue)} en venta ${saleId}`,
         }),
       );
 

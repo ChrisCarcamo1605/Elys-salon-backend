@@ -8,6 +8,7 @@ import { AuthUser } from '../../common/types/auth-user.type';
 import { CreateEntryDto } from './dto/create-entry.dto';
 import { CreateAdjustmentDto } from './dto/create-adjustment.dto';
 import { ListEntriesDto } from './dto/list-entries.dto';
+import { canSeeCost, stripCost } from '../../common/utils/cost-visibility';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -16,8 +17,10 @@ export class InventoryController {
 
   @Post('entries')
   @RequirePermission('inventory.create')
-  createEntry(@Body() dto: CreateEntryDto, @CurrentUser() user: AuthUser) {
-    return this.service.createEntry(dto, user.id);
+  async createEntry(@Body() dto: CreateEntryDto, @CurrentUser() user: AuthUser) {
+    const visible = canSeeCost(user);
+    const entry = await this.service.createEntry(dto, user.id, visible);
+    return stripCost(entry, visible);
   }
 
   @Post('adjustments')
@@ -29,9 +32,12 @@ export class InventoryController {
     return this.service.createAdjustment(dto, user.id);
   }
 
+  // El listado hace leftJoin del producto, así que arrastra `product.cost`
+  // además de unitCost/totalCost de cada entrada: hay que filtrarlo todo.
   @Get('entries')
   @RequirePermission('inventory.read')
-  findAll(@Query() query: ListEntriesDto) {
-    return this.service.findAll(query);
+  async findAll(@Query() query: ListEntriesDto, @CurrentUser() user: AuthUser) {
+    const result = await this.service.findAll(query);
+    return stripCost(result, canSeeCost(user));
   }
 }

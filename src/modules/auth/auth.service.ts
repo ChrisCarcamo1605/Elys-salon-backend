@@ -24,6 +24,7 @@ import {
   DeviceTokenScope,
 } from '../../common/enums';
 import { AuthUser } from '../../common/types/auth-user.type';
+import { PermissionsService } from '../permissions/permissions.service';
 
 const DEVICE_TOKEN_DAYS = 90;
 
@@ -55,6 +56,7 @@ export class AuthService {
     @InjectRepository(SaleLine) private lineRepo: Repository<SaleLine>,
     private jwtService: JwtService,
     private config: ConfigService<AppConfig>,
+    private permissionsService: PermissionsService,
   ) {}
 
   // ─── Rate limiting helpers ────────────────────────────────────────────────
@@ -182,6 +184,7 @@ export class AuthService {
     const { token, session } = await this.createJwtSession(user, ip, userAgent);
 
     const { pinHash, passwordHash, ...rest } = user;
+    rest.permissions = await this.effectivePermissions(user);
     const monthStats = await this.computeMonthStats(user.id);
 
     return {
@@ -267,6 +270,7 @@ export class AuthService {
     );
 
     const { pinHash, passwordHash, ...rest } = matched;
+    rest.permissions = await this.effectivePermissions(matched);
     const monthStats = await this.computeMonthStats(matched.id);
 
     return {
@@ -308,9 +312,22 @@ export class AuthService {
       id: user.id,
       name: user.name,
       role: user.role,
-      permissions: user.permissions ?? {},
+      permissions: await this.effectivePermissions(user),
       branchId: user.branchId ?? null,
     };
+  }
+
+  /**
+   * Permisos ya resueltos: default de la matriz según el rol, pisado por el
+   * override JSONB del usuario. `users.permissions` por sí solo únicamente
+   * contiene los overrides, así que quien lo leyera crudo (el POS, el menú)
+   * no veía los permisos concedidos a nivel de rol.
+   */
+  private async effectivePermissions(
+    user: Pick<User, 'role' | 'permissions'>,
+  ): Promise<Record<string, boolean>> {
+    const defaults = await this.permissionsService.getDefaultForRole(user.role);
+    return { ...defaults, ...(user.permissions ?? {}) };
   }
 
   async validateSession(token: string): Promise<boolean> {

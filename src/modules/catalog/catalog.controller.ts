@@ -16,31 +16,39 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { ItemType } from '../../common/enums';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
 import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthUser } from '../../common/types/auth-user.type';
+import { canSeeCost, stripCost } from '../../common/utils/cost-visibility';
 
 @Controller('catalog')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CatalogController {
   constructor(private readonly service: CatalogService) {}
 
+  // El catálogo lo lee todo el mundo (el POS lo necesita), pero el costo de
+  // compra solo viaja hacia quien tiene 'products.cost.read'.
   @Get()
-  findAll(
+  async findAll(
+    @CurrentUser() user: AuthUser,
     @Query('type') type?: ItemType,
     @Query('categoryId') categoryId?: string,
     @Query('active') active?: string,
   ) {
-    if (!type && !categoryId && active === undefined) {
-      return this.service.getCatalog();
-    }
-    return this.service.findAll(
-      type,
-      categoryId,
-      active === 'true' ? true : active === 'false' ? false : undefined,
-    );
+    const result =
+      !type && !categoryId && active === undefined
+        ? await this.service.getCatalog()
+        : await this.service.findAll(
+            type,
+            categoryId,
+            active === 'true' ? true : active === 'false' ? false : undefined,
+          );
+    return stripCost(result, canSeeCost(user));
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    const item = await this.service.findOne(id);
+    return stripCost(item, canSeeCost(user));
   }
 
   @Post('items')
